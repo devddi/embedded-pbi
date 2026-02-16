@@ -1,23 +1,25 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL;
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY;
-
-const supabaseClient =
-  supabaseUrl && supabaseServiceRoleKey
-    ? createClient(supabaseUrl, supabaseServiceRoleKey)
-    : null;
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   const { path, clientId: clientIdQuery } = req.query;
   const method = req.method || 'GET';
 
-  if (!supabaseClient) {
-    return res
-      .status(500)
-      .json({ error: 'Configuração do Supabase ausente no ambiente do servidor.' });
+  const supabaseUrl = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+  const supabaseServiceRoleKey =
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || '';
+
+  if (!supabaseUrl || !supabaseServiceRoleKey) {
+    return res.status(500).json({
+      error: 'Configuração do Supabase ausente',
+      missing: {
+        SUPABASE_URL: !!supabaseUrl,
+        SUPABASE_SERVICE_ROLE_KEY: !!supabaseServiceRoleKey,
+      },
+    });
   }
+
+  const supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey);
 
   try {
     const clientId =
