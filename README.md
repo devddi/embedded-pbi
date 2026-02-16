@@ -1,22 +1,22 @@
-# Hub - Eurostock
+# Hub - DDInsights
 
-Sistema moderno Hub - Eurostock desenvolvido com React e Vite, integrando análise de dados via Power BI e assistência inteligente via Chatbot.
+Sistema Hub - DDInsights focado em dashboards Power BI embarcados e gestão de apresentações para TV.
 
 ## 🚀 Funcionalidades Principais
 
-### 📊 Integração com Power BI
+### 📊 Embedded Power BI
 - **Dashboards Embarcados**: Visualização de relatórios e workspaces do Power BI diretamente na aplicação.
 - **Autenticação Segura**: Gerenciamento de tokens via Service Principal (Azure AD).
 - **Controles de Visualização**: Ajuste dinâmico de layout (Ajustar à página, Largura, Tamanho real).
 
-### 🤖 Smart Chat (Assistente IA)
-- **Chatbot Inteligente**: Interface de chat conectada via Webhook (n8n) para processamento de linguagem natural.
-- **Suporte a Multimídia**: Envio de mensagens de texto e **gravação de áudio** (mensagens de voz).
-- **Interface Responsiva**: Design fluido com animações (Framer Motion).
+### 📺 Apresentações (TV)
+- **Gestão de Apresentações**: Cadastro e organização de apresentações para TVs e painéis.
+- **Publicação**: Controle de quais apresentações estão ativas/publicadas.
+- **Visualização em Tela**: Modo dedicado para exibição contínua em televisões.
 
 ### 🔐 Autenticação e Segurança
-- **Supabase Auth**: Sistema completo de login e registro de usuários.
-- **Proteção de Rotas**: Controle de acesso para páginas privadas.
+- **Supabase Auth**: Sistema de login e controle de acesso dos usuários.
+- **Proteção de Rotas**: Acesso restrito para páginas privadas.
 
 ### 📱 Experiência do Usuário (UX)
 - **PWA (Progressive Web App)**: Instalável como aplicativo nativo.
@@ -29,8 +29,7 @@ Sistema moderno Hub - Eurostock desenvolvido com React e Vite, integrando análi
 - **Estilização**: Tailwind CSS, Shadcn/ui
 - **Dados & Backend**: Supabase (Auth/DB), TanStack Query
 - **Integrações**:
-  - `powerbi-client-react`: SDK para embed do Power BI.
-  - Webhooks (n8n): Para lógica do Chatbot.
+-  - `powerbi-client-react`: SDK para embed do Power BI.
 - **Bibliotecas**: Framer Motion (animações), Lucide React (ícones), Axios.
 
 ## ⚙️ Configuração

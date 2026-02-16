@@ -4,7 +4,8 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
-// https://vitejs.dev/config/
+const pwaIconSrc = process.env.VITE_PWA_ICON_URL || "/icons/app-icon.png";
+
 export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
@@ -33,7 +34,7 @@ export default defineConfig(({ mode }) => ({
         orientation: "portrait",
         icons: [
           {
-            src: process.env.VITE_PWA_ICON_URL as string,
+            src: pwaIconSrc,
             sizes: "512x512",
             type: "image/png",
             purpose: "any maskable",
