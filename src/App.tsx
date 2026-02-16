@@ -7,24 +7,16 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { Header } from "@/components/Header";
 import { ReportBugButton } from "@/components/ReportBugButton";
-import { MigrationTest } from "@/components/MigrationTest";
-import { ProjectsDebugTest } from "@/components/ProjectsDebugTest";
-import { InsertTestData } from "@/components/InsertTestData";
-import Dashboard from "./pages/Dashboard";
-import Projects from "./pages/Projects";
-import ProjectActivities from "./pages/ProjectActivities";
 import Users from "./pages/Users";
 import Welcome from "./pages/Welcome";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
-import BIDashboard from "./pages/BIDashboard";
-import Consorcios from "./pages/Consorcios";
-import Chat from "./pages/Chat";
 import PowerBIEmbedPage from "./pages/Powerbiembed";
 import DashboardManagement from "./pages/DashboardManagement";
 import TVPresentations from "./pages/TVPresentations";
 import TVPresentationViewer from "./pages/TVPresentationViewer";
 import TVPublished from "./pages/TVPublished";
+import Clients from "./pages/Clients";
 
 const queryClient = new QueryClient();
 
@@ -49,32 +41,8 @@ const App = () => (
             <Route
               path="/"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
                   <Welcome />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/projects"
-              element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
-                  <Projects />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/projects/:projectId"
-              element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
-                  <ProjectActivities />
                 </ProtectedRoute>
               }
             />
@@ -87,6 +55,14 @@ const App = () => (
               }
             />
             <Route
+              path="/clients"
+              element={
+                <ProtectedRoute allowedRoles={["admin_master"]}>
+                  <Clients />
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/users"
               element={
                 <ProtectedRoute allowedRoles={["admin_master"]}>
@@ -95,33 +71,9 @@ const App = () => (
               }
             />
             <Route
-              path="/bi-dashboard"
-              element={
-                <ProtectedRoute allowedRoles={["admin_master"]}>
-                  <BIDashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/consorcios"
-              element={
-                <ProtectedRoute allowedRoles={["admin_master", "consorcio"]}>
-                  <Consorcios />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/chat"
-              element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
-                  <Chat />
-                </ProtectedRoute>
-              }
-            />
-            <Route
               path="/powerbi"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
                   <PowerBIEmbedPage />
                 </ProtectedRoute>
               }
@@ -145,19 +97,9 @@ const App = () => (
             <Route
               path="/tv-viewer/:id"
               element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user", "consorcio"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
                   <TVPresentationViewer />
                 </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/migration-test"
-              element={
-                <div className="container mx-auto p-6">
-                  <MigrationTest />
-                  <ProjectsDebugTest />
-                  <InsertTestData />
-                </div>
               }
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

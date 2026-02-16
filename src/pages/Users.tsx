@@ -40,11 +40,8 @@ interface UserProfile {
   id: string;
   first_name: string | null;
   last_name: string | null;
-  phone: string | null;
   role: string | null;
-  profile_image_url: string | null;
   is_active: boolean | null;
-  codigo: string | null;
 }
 
 export default function Users() {
@@ -62,13 +59,10 @@ export default function Users() {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    phone: "",
     role: "user",
-    profileImageUrl: "",
     is_active: true,
     email: "",
     password: "", 
-    codigo: "", // Adicionado campo codigo
   });
 
   useEffect(() => {
@@ -156,13 +150,13 @@ export default function Users() {
   const loadUsers = async () => {
     try {
       const { data: profiles, error: profilesError } = await supabase
-        .from("projects_profiles")
-        .select("id, first_name, last_name, phone, profile_image_url, is_active, codigo");
+        .from("profiles")
+        .select("id, first_name, last_name, is_active");
 
       if (profilesError) throw profilesError;
 
       const { data: roles, error: rolesError } = await supabase
-      .from("projects_user_roles")
+      .from("user_roles")
       .select("user_id, role");
 
       if (rolesError) throw rolesError;
@@ -173,11 +167,8 @@ export default function Users() {
           id: profile.id,
           first_name: profile.first_name ?? null,
           last_name: profile.last_name ?? null,
-          phone: profile.phone ?? null,
           role: userRole?.role ?? null,
-          profile_image_url: profile.profile_image_url ?? null,
           is_active: profile.is_active ?? null,
-          codigo: profile.codigo ?? null,
         };
       });
 
@@ -200,13 +191,10 @@ export default function Users() {
     setFormData({
       firstName: "",
       lastName: "",
-      phone: "",
       role: "user",
-      profileImageUrl: "",
       is_active: true,
       email: "",
       password: "",
-      codigo: "", // Resetar codigo
     });
     setPreviewImage(null);
     setIsCreateUserDialogOpen(true);
@@ -235,27 +223,24 @@ export default function Users() {
 
       const newUserId = authData.user.id;
 
-      // 2. Inserir perfil em projects_profiles
+      // 2. Inserir perfil em profiles
       const { error: profileError } = await supabase
-        .from("projects_profiles")
+        .from("profiles")
         .insert({
           id: newUserId,
           first_name: formData.firstName,
           last_name: formData.lastName,
-          phone: formData.phone,
-          profile_image_url: formData.profileImageUrl || null,
           is_active: formData.is_active,
-          codigo: formData.codigo || null, // Inserir codigo
         });
 
       if (profileError) throw profileError;
 
-      // 3. Inserir role em projects_user_roles
+      // 3. Inserir role em user_roles
       const { error: roleError } = await supabase
-        .from("projects_user_roles")
+        .from("user_roles")
         .insert({
           user_id: newUserId,
-          role: formData.role as "admin_master" | "admin" | "user" | "consorcio",
+          role: formData.role as "admin_master" | "admin" | "user",
         });
 
       if (roleError) throw roleError;
@@ -277,14 +262,11 @@ export default function Users() {
 
     try {
       const { error: profileError } = await supabase
-        .from("projects_profiles")
+        .from("profiles")
         .update({
           first_name: formData.firstName,
           last_name: formData.lastName,
-          phone: formData.phone,
-          profile_image_url: formData.profileImageUrl || null,
           is_active: formData.is_active,
-          codigo: formData.codigo || null, // Atualizar codigo
         })
         .eq("id", selectedUserId);
 
@@ -292,7 +274,7 @@ export default function Users() {
 
       // Primeiro, verificar se já existe um role para este usuário
       const { data: existingRole } = await supabase
-        .from("projects_user_roles")
+        .from("user_roles")
         .select("id, role")
         .eq("user_id", selectedUserId)
         .maybeSingle();
@@ -302,17 +284,17 @@ export default function Users() {
       if (existingRole) {
         // Se já existe um role, atualizar
         const { error } = await supabase
-          .from("projects_user_roles")
-          .update({ role: formData.role as "admin_master" | "admin" | "user" | "consorcio" })
+          .from("user_roles")
+          .update({ role: formData.role as "admin_master" | "admin" | "user" })
           .eq("user_id", selectedUserId);
         roleError = error;
       } else {
         // Se não existe, inserir novo
         const { error } = await supabase
-          .from("projects_user_roles")
+          .from("user_roles")
             .insert({
               user_id: selectedUserId,
-              role: formData.role as "admin_master" | "admin" | "user" | "consorcio",
+              role: formData.role as "admin_master" | "admin" | "user",
             });
         roleError = error;
       }
@@ -347,13 +329,6 @@ export default function Users() {
         </Badge>
       );
     }
-    if (role === "consorcio") {
-      return (
-        <Badge className="bg-primary/20 text-primary border-primary/30">
-          Consórcio
-        </Badge>
-      );
-    }
     return (
       <Badge variant="outline">
         <UserIcon className="w-3 h-3 mr-1" />
@@ -365,8 +340,7 @@ export default function Users() {
   const filteredUsers = users.filter((u) => {
     const searchLower = searchTerm.toLowerCase();
     const fullName = `${u.first_name || ""} ${u.last_name || ""}`.toLowerCase();
-    const codigo = (u.codigo || "").toLowerCase();
-    return fullName.includes(searchLower) || codigo.includes(searchLower);
+    return fullName.includes(searchLower);
   });
 
   if (isLoading) {
@@ -413,7 +387,7 @@ export default function Users() {
         <div className="mb-6 relative max-w-md animate-fade-in">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
           <Input
-            placeholder="Buscar por nome ou código..."
+            placeholder="Buscar por nome..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="pl-10 glass-card border-white/10"
@@ -425,10 +399,8 @@ export default function Users() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Código</TableHead>
                   <TableHead>Nome</TableHead>
                   <TableHead>Sobrenome</TableHead>
-                  <TableHead>Telefone</TableHead>
                   <TableHead>Tipo de Acesso</TableHead>
                   {userRole === "admin_master" && <TableHead>Ações</TableHead>}
                 </TableRow>
@@ -436,10 +408,8 @@ export default function Users() {
               <TableBody>
                 {filteredUsers.map((userItem) => (
                   <TableRow key={userItem.id}>
-                    <TableCell>{userItem.codigo || "-"}</TableCell>
                     <TableCell>{userItem.first_name || "-"}</TableCell>
                     <TableCell>{userItem.last_name || "-"}</TableCell>
-                    <TableCell>{userItem.phone || "-"}</TableCell>
                     <TableCell>{getRoleBadge(userItem.role)}</TableCell>
                     {userRole === "admin_master" && (
                       <TableCell>
@@ -451,13 +421,11 @@ export default function Users() {
                             setFormData({
                               firstName: userItem.first_name || "",
                               lastName: userItem.last_name || "",
-                              phone: userItem.phone || "",
                               role: userItem.role || "user",
-                              profileImageUrl: userItem.profile_image_url || "",
                               is_active: userItem.is_active ?? true,
-                              codigo: userItem.codigo || "",
+                              email: "",
+                              password: "", 
                             });
-                            setPreviewImage(userItem.profile_image_url);
                             setOpen(true);
                           }}
                         >
@@ -476,16 +444,8 @@ export default function Users() {
             {filteredUsers.map((userItem) => (
               <div key={userItem.id} className="glass-card rounded-lg p-4 flex items-start justify-between">
                 <div className="space-y-1">
-                  {userItem.codigo && (
-                    <div className="text-xs font-bold text-primary">
-                      Cód: {userItem.codigo}
-                    </div>
-                  )}
                   <div className="text-sm font-medium">
                     {([userItem.first_name, userItem.last_name].filter(Boolean).join(" ") || "-")}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {userItem.phone || "-"}
                   </div>
                   <div>
                     {getRoleBadge(userItem.role)}
@@ -500,13 +460,11 @@ export default function Users() {
                       setFormData({
                         firstName: userItem.first_name || "",
                         lastName: userItem.last_name || "",
-                        phone: userItem.phone || "",
                         role: userItem.role || "user",
-                        profileImageUrl: userItem.profile_image_url || "",
                         is_active: userItem.is_active ?? true,
-                        codigo: userItem.codigo || "",
+                        email: "",
+                        password: "", 
                       });
-                      setPreviewImage(userItem.profile_image_url);
                       setOpen(true);
                     }}
                   >
@@ -527,56 +485,6 @@ export default function Users() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
-              {/* Foto de Perfil */}
-              <div className="grid gap-2">
-                <Label>Foto de Perfil</Label>
-                <div className="flex flex-col items-center gap-4">
-                  <div className="relative">
-                    <div className="w-24 h-24 rounded-full overflow-hidden bg-muted flex items-center justify-center">
-                      {previewImage ? (
-                        <img
-                          src={previewImage}
-                          alt="Preview"
-                          className="w-full h-full object-cover object-top"
-                        />
-                      ) : (
-                        <UserIcon className="w-8 h-8 text-muted-foreground" />
-                      )}
-                    </div>
-                    {previewImage && (
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        className="absolute -top-2 -right-2 w-6 h-6 rounded-full p-0"
-                        onClick={removeImage}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    )}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploading}
-                      className="flex items-center gap-2"
-                    >
-                      <Upload className="w-4 h-4" />
-                      {isUploading ? "Carregando..." : "Escolher Foto"}
-                    </Button>
-                  </div>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="hidden"
-                  />
-                </div>
-              </div>
 
               <div className="grid gap-2">
                 <Label htmlFor="firstName">Nome</Label>
@@ -599,26 +507,6 @@ export default function Users() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="codigo">Código</Label>
-                <Input
-                  id="codigo"
-                  value={formData.codigo}
-                  onChange={(e) =>
-                    setFormData({ ...formData, codigo: e.target.value })
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="phone">Telefone</Label>
-                <Input
-                  id="phone"
-                  placeholder="(XX) X XXXX-XXXX"
-                  value={formData.phone}
-                  onChange={handlePhoneChange}
-                  maxLength={16}
-                />
-              </div>
-              <div className="grid gap-2">
                 <Label htmlFor="role">Tipo de Acesso</Label>
                 <Select
                   value={formData.role}
@@ -631,7 +519,6 @@ export default function Users() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">Usuário</SelectItem>
-                    <SelectItem value="consorcio">Consórcio</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     {userRole === "admin_master" && (
                       <SelectItem value="admin_master">Admin Master</SelectItem>
@@ -717,26 +604,6 @@ export default function Users() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="codigo_create">Código</Label>
-                <Input
-                  id="codigo_create"
-                  value={formData.codigo}
-                  onChange={(e) =>
-                    setFormData({ ...formData, codigo: e.target.value })
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="phone">Telefone</Label>
-                <Input
-                  id="phone"
-                  placeholder="(XX) X XXXX-XXXX"
-                  value={formData.phone}
-                  onChange={handlePhoneChange}
-                  maxLength={16}
-                />
-              </div>
-              <div className="grid gap-2">
                 <Label htmlFor="role">Tipo de Acesso</Label>
                 <Select
                   value={formData.role}
@@ -749,7 +616,6 @@ export default function Users() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="user">Usuário</SelectItem>
-                    <SelectItem value="consorcio">Consórcio</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
                     {userRole === "admin_master" && (
                       <SelectItem value="admin_master">Admin Master</SelectItem>

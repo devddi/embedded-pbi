@@ -10,22 +10,9 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
     proxy: {
-      '/microsoft-token': {
-        target: 'https://login.microsoftonline.com',
+      '/api': {
+        target: 'http://localhost:3001',
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/microsoft-token/, ''),
-        secure: false,
-        configure: (proxy, _options) => {
-          proxy.on('proxyReq', (proxyReq, req, _res) => {
-            proxyReq.removeHeader('Origin');
-            proxyReq.removeHeader('Referer');
-          });
-        },
-      },
-      '/powerbi-api': {
-        target: 'https://api.powerbi.com',
-        changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/powerbi-api/, ''),
         secure: false,
       }
     }
@@ -46,7 +33,7 @@ export default defineConfig(({ mode }) => ({
         orientation: "portrait",
         icons: [
           {
-            src: "https://rzdepoejfchewvjzojan.supabase.co/storage/v1/object/public/fotos/fotos/fotos-escudos/bot.png",
+            src: process.env.VITE_PWA_ICON_URL as string,
             sizes: "512x512",
             type: "image/png",
             purpose: "any maskable",

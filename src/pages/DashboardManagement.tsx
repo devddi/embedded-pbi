@@ -3,17 +3,22 @@ import { PageLayout } from "@/components/PageLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, AlertCircle, FileBarChart } from "lucide-react";
-import { getAllReports, Report } from "@/services/powerBiApiService";
+import { Loader2, AlertCircle, FileBarChart, Building2, LayoutDashboard } from "lucide-react";
+import { getAllReports, getWorkspaces, Report, Workspace } from "@/services/powerBiApiService";
 import { Switch } from "@/components/ui/switch"; // New import
 import { Label } from "@/components/ui/label"; // New import
 import { MultiSelect, OptionType } from "@/components/MultiSelect"; // New import
 import { getAllUsers, UserProfile } from "@/services/userService"; // New import
 import { getAllDashboardSettings, upsertDashboardSettings, DashboardSettings } from "@/services/dashboardSettingsService"; // New import
 import { toast } from "sonner"; // New import
+import { powerbiClientsService, PowerBIClient } from "@/services/powerbiClientsService";
 
 export default function DashboardManagement() {
   const [reports, setReports] = useState<Report[]>([]);
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
+  const [clients, setClients] = useState<PowerBIClient[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [users, setUsers] = useState<UserProfile[]>([]); // New state
@@ -25,16 +30,35 @@ export default function DashboardManagement() {
       setLoading(true);
       setError(null);
       try {
-        const [fetchedReports, fetchedUsers, fetchedSettings] = await Promise.all([
-          getAllReports(),
+        const [fetchedClients, fetchedUsers] = await Promise.all([
+          powerbiClientsService.list(),
           getAllUsers(),
+        ]);
+
+        setClients(fetchedClients);
+        setUsers(fetchedUsers);
+
+        if (fetchedClients.length === 0) {
+          setReports([]);
+          setDashboardSettings({});
+          return;
+        }
+
+        const firstClientId = fetchedClients[0].id as string;
+        setSelectedClientId(firstClientId);
+
+        const [clientWorkspaces, fetchedReports, fetchedSettings] = await Promise.all([
+          getWorkspaces(firstClientId),
+          getAllReports(firstClientId),
           getAllDashboardSettings(),
         ]);
 
+        setWorkspaces(clientWorkspaces);
         setReports(fetchedReports);
-        setUsers(fetchedUsers);
 
-        // Initialize dashboard settings
+        const firstWorkspaceId = clientWorkspaces[0]?.id ?? null;
+        setSelectedWorkspaceId(firstWorkspaceId);
+
         const initialSettings: Record<string, DashboardSettings> = {};
         fetchedReports.forEach(report => {
           const existingSetting = fetchedSettings.find(s => s.dashboard_id === report.id);
@@ -95,10 +119,134 @@ export default function DashboardManagement() {
     }
   };
 
+  const filteredReports =
+    selectedWorkspaceId != null
+      ? reports.filter(report => report.workspaceId === selectedWorkspaceId)
+      : reports;
+
   return (
     <PageLayout title="Gerenciar Dashboards">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <h2 className="text-2xl font-bold mb-4">Todos os Dashboards e Relatórios Power BI</h2>
+        <h2 className="text-2xl font-bold mb-4">Configuração de Dashboards Power BI por Cliente</h2>
+
+        <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 mb-8">
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="w-5 h-5 text-primary" />
+                Clientes Power BI
+              </CardTitle>
+              <CardDescription>
+                Selecione um cliente para ver seus workspaces e relatórios.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {clients.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum cliente Power BI cadastrado. Cadastre em &quot;Clientes&quot; primeiro.
+                </p>
+              )}
+              {clients.length > 0 && (
+                <div className="space-y-2">
+                  {clients.map((client) => (
+                    <button
+                      key={client.id}
+                      onClick={async () => {
+                        if (!client.id) return;
+                        setSelectedClientId(client.id);
+                        setSelectedWorkspaceId(null);
+                        setLoading(true);
+                        setError(null);
+                        try {
+                          const [clientWorkspaces, clientReports, fetchedSettings] = await Promise.all([
+                            getWorkspaces(client.id),
+                            getAllReports(client.id),
+                            getAllDashboardSettings(),
+                          ]);
+
+                          setWorkspaces(clientWorkspaces);
+                          setReports(clientReports);
+
+                          const firstWorkspaceId = clientWorkspaces[0]?.id ?? null;
+                          setSelectedWorkspaceId(firstWorkspaceId);
+
+                          const clientSettings: Record<string, DashboardSettings> = {};
+                          clientReports.forEach(report => {
+                            const existingSetting = fetchedSettings.find(s => s.dashboard_id === report.id);
+                            clientSettings[report.id] = existingSetting || {
+                              dashboard_id: report.id,
+                              is_visible: true,
+                              assigned_users: [],
+                            };
+                          });
+                          setDashboardSettings(clientSettings);
+                        } catch (e: unknown) {
+                          console.error("Erro ao carregar dados do cliente:", e);
+                          const errorMessage = e instanceof Error ? e.message : String(e);
+                          setError(`Erro ao carregar dados do cliente: ${errorMessage}`);
+                          toast.error(`Erro ao carregar dados do cliente: ${errorMessage}`);
+                        } finally {
+                          setLoading(false);
+                        }
+                      }}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-md border text-sm transition-colors ${
+                        selectedClientId === client.id
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border hover:bg-muted"
+                      }`}
+                    >
+                      <span className="truncate">{client.name}</span>
+                      <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+                        {client.email}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="h-full">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <LayoutDashboard className="w-5 h-5 text-primary" />
+                Workspaces do Cliente
+              </CardTitle>
+              <CardDescription>
+                Escolha um workspace para visualizar e configurar seus relatórios.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {selectedClientId == null && (
+                <p className="text-sm text-muted-foreground">
+                  Selecione um cliente para carregar os workspaces.
+                </p>
+              )}
+              {selectedClientId != null && workspaces.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Nenhum workspace encontrado para este cliente.
+                </p>
+              )}
+              {selectedClientId != null && workspaces.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {workspaces.map((workspace) => (
+                    <button
+                      key={workspace.id}
+                      onClick={() => setSelectedWorkspaceId(workspace.id)}
+                      className={`px-3 py-1.5 rounded-full border text-xs md:text-sm transition-colors ${
+                        selectedWorkspaceId === workspace.id
+                          ? "border-primary bg-primary/5 text-primary"
+                          : "border-border hover:bg-muted"
+                      }`}
+                    >
+                      {workspace.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         {error && (
           <Alert variant="destructive" className="mb-6">
@@ -117,15 +265,15 @@ export default function DashboardManagement() {
           </div>
         )}
 
-        {!loading && reports.length === 0 && !error && (
+        {!loading && filteredReports.length === 0 && !error && (
           <div className="col-span-full text-center py-12 text-muted-foreground">
-            Nenhum dashboard ou relatório encontrado.
+            Nenhum dashboard ou relatório encontrado para o cliente e workspace selecionados.
           </div>
         )}
 
-        {!loading && reports.length > 0 && (
+        {!loading && filteredReports.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {reports.map((report) => {
+            {filteredReports.map((report) => {
               const settings = dashboardSettings[report.id];
               const isSaving = savingSettings[report.id];
 

@@ -31,11 +31,11 @@ CREATE POLICY "Enable read access for all users" ON public.tv_presentations FOR 
 CREATE POLICY "Enable insert for authenticated users" ON public.tv_presentations FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 CREATE POLICY "Enable update for owners or admins" ON public.tv_presentations FOR UPDATE USING (
     auth.uid() = created_by OR 
-    EXISTS (SELECT 1 FROM public.projects_user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'admin_master'))
+    EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'admin_master'))
 );
 CREATE POLICY "Enable delete for owners or admins" ON public.tv_presentations FOR DELETE USING (
     auth.uid() = created_by OR 
-    EXISTS (SELECT 1 FROM public.projects_user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'admin_master'))
+    EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'admin_master'))
 );
 
 -- Policies for tv_presentation_slides
@@ -46,7 +46,7 @@ CREATE POLICY "Enable update for slide owners or admins" ON public.tv_presentati
         SELECT 1 FROM public.tv_presentations p 
         WHERE p.id = presentation_id AND (
             p.created_by = auth.uid() OR 
-            EXISTS (SELECT 1 FROM public.projects_user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'admin_master'))
+            EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'admin_master'))
         )
     )
 );
@@ -55,7 +55,7 @@ CREATE POLICY "Enable delete for slide owners or admins" ON public.tv_presentati
         SELECT 1 FROM public.tv_presentations p 
         WHERE p.id = presentation_id AND (
             p.created_by = auth.uid() OR 
-            EXISTS (SELECT 1 FROM public.projects_user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'admin_master'))
+            EXISTS (SELECT 1 FROM public.user_roles WHERE user_id = auth.uid() AND role IN ('admin', 'admin_master'))
         )
     )
 );

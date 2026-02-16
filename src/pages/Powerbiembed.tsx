@@ -9,6 +9,7 @@ import { Loader2, AlertCircle, LayoutDashboard, FileBarChart, ArrowLeft, Maximiz
 import { PowerBIEmbed } from "powerbi-client-react";
 import { models } from "powerbi-client";
 import { getAllDashboardSettings } from "@/services/dashboardSettingsService";
+import { getWorkspaces, getReportsInWorkspace, getEmbedToken, Workspace, Report } from "@/services/powerBiApiService";
 import {
   Select,
   SelectContent,
@@ -16,26 +17,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-
-interface Workspace {
-  id: string;
-  name: string;
-  isReadOnly: boolean;
-  isOnDedicatedCapacity: boolean;
-}
-
-interface Report {
-  id: string;
-  name: string;
-  embedUrl: string;
-  webUrl: string;
-}
-
-interface EmbedToken {
-  token: string;
-  tokenId: string;
-  expiration: string;
-}
 
 export default function PowerBIEmbedPage() {
   const { user, userRole } = useAuth();
@@ -59,96 +40,6 @@ export default function PowerBIEmbedPage() {
   const [viewMode, setViewMode] = useState<"fitToPage" | "fitToWidth" | "actualSize">("fitToWidth");
   const embedContainerRef = useRef<HTMLDivElement>(null);
   const reportRef = useRef<any>(null);
-  const accessTokenRef = useRef<string | null>(null);
-
-  // Obter Access Token via Service Principal
-  const getAccessToken = useCallback(async (): Promise<string> => {
-    // Se já temos um token válido, reutilizar
-    if (accessTokenRef.current) {
-      return accessTokenRef.current;
-    }
-
-    try {
-      let response;
-      
-      if (import.meta.env.DEV) {
-        // Em desenvolvimento, usa o proxy do Vite configurado no vite.config.ts
-        const tenantId = import.meta.env.VITE_MSAL_TENANT_ID;
-        const clientId = import.meta.env.VITE_MSAL_CLIENT_ID;
-        const clientSecret = import.meta.env.VITE_MSAL_CLIENT_SECRET;
-        
-        response = await fetch(`/microsoft-token/${tenantId}/oauth2/v2.0/token`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-          body: new URLSearchParams({
-            grant_type: 'client_credentials',
-            client_id: clientId,
-            client_secret: clientSecret,
-            scope: 'https://analysis.windows.net/powerbi/api/.default'
-          })
-        });
-      } else {
-        // Em produção (Vercel), usa a Serverless Function para segurança e evitar CORS
-        response = await fetch(`/api/powerbi?path=get-access-token`);
-      }
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("Erro ao obter access token:", errorData);
-        throw new Error(`Falha na autenticação: ${response.status}`);
-      }
-
-      const data = await response.json();
-      accessTokenRef.current = data.access_token;
-      
-      // Renovar token antes de expirar
-      setTimeout(() => {
-        accessTokenRef.current = null;
-      }, 50 * 60 * 1000);
-
-      return data.access_token;
-    } catch (error) {
-      console.error("Erro ao obter token:", error);
-      throw new Error("Não foi possível autenticar com o Power BI.");
-    }
-  }, []);
-
-  // Obter Embed Token para o relatório
-  const getEmbedToken = useCallback(async (workspaceId: string, reportId: string): Promise<string> => {
-    const accessToken = await getAccessToken();
-    
-    try {
-      let response;
-      const path = `v1.0/myorg/groups/${workspaceId}/reports/${reportId}/GenerateToken`;
-      
-      if (import.meta.env.DEV) {
-        response = await fetch(`/powerbi-api/${path}`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ accessLevel: 'View' })
-        });
-      } else {
-        response = await fetch(`/api/powerbi?path=${path}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ accessLevel: 'View' })
-        });
-      }
-
-      if (!response.ok) {
-        throw new Error('Falha ao gerar embed token');
-      }
-
-      const data: EmbedToken = await response.json();
-      return data.token;
-    } catch (error) {
-      console.error("Erro ao obter embed token:", error);
-      throw error;
-    }
-  }, [getAccessToken]);
 
   // Selecionar Relatório para Embed
   const handleSelectReport = useCallback(async (report: Report) => {
@@ -259,26 +150,9 @@ export default function PowerBIEmbedPage() {
     setStatusMessage("Carregando workspaces...");
     
     try {
-      const accessToken = await getAccessToken();
-      let response;
-      const path = "v1.0/myorg/groups";
-      
-      if (import.meta.env.DEV) {
-        response = await fetch(`/powerbi-api/${path}`, {
-          headers: { 'Authorization': `Bearer ${accessToken}` }
-        });
-      } else {
-        response = await fetch(`/api/powerbi?path=${path}`);
-      }
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Falha ao carregar workspaces: ${response.status} - ${errorText}`);
-      }
-      
-      const data = await response.json();
-      console.log("Workspaces carregados:", data.value?.length || 0);
-      setWorkspaces(data.value || []);
+      const data = await getWorkspaces();
+      console.log("Workspaces carregados:", data.length || 0);
+      setWorkspaces(data);
       setView("workspaces");
       setStatusMessage("");
     } catch (e: unknown) {
@@ -298,25 +172,7 @@ export default function PowerBIEmbedPage() {
     setStatusMessage(`Carregando relatórios de ${workspace.name}...`);
     
     try {
-      const accessToken = await getAccessToken();
-      let response;
-      const path = `v1.0/myorg/groups/${workspace.id}/reports`;
-      
-      if (import.meta.env.DEV) {
-        response = await fetch(`/powerbi-api/${path}`, {
-          headers: { 'Authorization': `Bearer ${accessToken}` }
-        });
-      } else {
-        response = await fetch(`/api/powerbi?path=${path}`);
-      }
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Falha ao carregar relatórios: ${response.status} - ${errorText}`);
-      }
-      
-      const data = await response.json();
-      const allReports: Report[] = data.value || [];
+      const allReports = await getReportsInWorkspace(workspace.id);
       
       // Buscar configurações de visibilidade do Supabase
       const settings = await getAllDashboardSettings();

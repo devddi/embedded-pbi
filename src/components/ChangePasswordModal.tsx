@@ -72,15 +72,18 @@ export const ChangePasswordModal = ({ open, onOpenChange }: ChangePasswordModalP
         description: "Senha alterada com sucesso!",
       });
 
-      // Limpar campos e fechar modal
       setNewPassword("");
       setConfirmPassword("");
       onOpenChange(false);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro ao alterar senha:", error);
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Erro ao alterar senha. Tente novamente.";
       toast({
         title: "Erro",
-        description: error.message || "Erro ao alterar senha. Tente novamente.",
+        description: message,
         variant: "destructive",
       });
     } finally {

@@ -1,6 +1,3 @@
-import { useRef } from "react";
-import { models } from "powerbi-client";
-
 export interface Workspace {
   id: string;
   name: string;
@@ -29,53 +26,55 @@ interface EmbedToken {
   expiration: string;
 }
 
-// Usamos um useRef para armazenar o accessToken e evitar recriação desnecessária
-const accessTokenRef = { current: null as string | null };
+const accessTokenCache: Record<string, string | null> = {};
 
 /**
  * Obtém o Access Token para autenticação com o Power BI via Service Principal.
  * Reutiliza o token se ainda for válido.
  * @returns Promise<string> O access token.
  */
-export const getAccessToken = async (): Promise<string> => {
-  if (accessTokenRef.current) {
-    return accessTokenRef.current;
+export const getAccessToken = async (clientId?: string): Promise<string> => {
+  const cacheKey = clientId || 'default';
+
+  if (accessTokenCache[cacheKey]) {
+    return accessTokenCache[cacheKey] as string;
   }
 
   try {
-    let response;
-    
-    if (import.meta.env.DEV) {
-      const tenantId = import.meta.env.VITE_MSAL_TENANT_ID;
-      const clientId = import.meta.env.VITE_MSAL_CLIENT_ID;
-      const clientSecret = import.meta.env.VITE_MSAL_CLIENT_SECRET;
-      
-      response = await fetch(`/microsoft-token/${tenantId}/oauth2/v2.0/token`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          grant_type: 'client_credentials',
-          client_id: clientId,
-          client_secret: clientSecret,
-          scope: 'https://analysis.windows.net/powerbi/api/.default'
-        })
-      });
-    } else {
-      response = await fetch(`/api/powerbi?path=get-access-token`);
-    }
+    const url =
+      clientId != null
+        ? `/api/powerbi?clientId=${encodeURIComponent(clientId)}&path=get-access-token`
+        : `/api/powerbi?path=get-access-token`;
+    const response = await fetch(url);
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      console.error("Erro ao obter access token:", errorData);
-      throw new Error(`Falha na autenticação: ${response.status}`);
+      const text = await response.text();
+      console.error("Erro ao obter access token (status não OK):", {
+        status: response.status,
+        body: text,
+      });
+      throw new Error(`Falha na autenticação: ${response.status} - ${text}`);
     }
 
-    const data = await response.json();
-    accessTokenRef.current = data.access_token;
+    const text = await response.text();
+    let data: { access_token?: string; error?: string };
+
+    try {
+      data = JSON.parse(text);
+    } catch (e) {
+      console.error("Resposta inválida da API /api/powerbi ao obter access token:", text);
+      throw new Error("Resposta inválida da API de autenticação do Power BI. Verifique se a função /api/powerbi está rodando corretamente.");
+    }
+
+    if (!data.access_token) {
+      console.error("Resposta da API /api/powerbi não contém access_token:", data);
+      throw new Error("A resposta da API de autenticação não contém access_token.");
+    }
+
+    accessTokenCache[cacheKey] = data.access_token;
     
-    // Renovar token antes de expirar (50 minutos)
     setTimeout(() => {
-      accessTokenRef.current = null;
+      accessTokenCache[cacheKey] = null;
     }, 50 * 60 * 1000);
 
     return data.access_token;
@@ -91,8 +90,12 @@ export const getAccessToken = async (): Promise<string> => {
  * @param reportId O ID do relatório.
  * @returns Promise<string> O embed token.
  */
-export const getEmbedToken = async (workspaceId: string, reportId: string): Promise<string> => {
-  const accessToken = await getAccessToken();
+export const getEmbedToken = async (
+  workspaceId: string,
+  reportId: string,
+  clientId?: string,
+): Promise<string> => {
+  const accessToken = await getAccessToken(clientId);
   
   try {
     let response;
@@ -108,7 +111,11 @@ export const getEmbedToken = async (workspaceId: string, reportId: string): Prom
         body: JSON.stringify({ accessLevel: 'View' })
       });
     } else {
-      response = await fetch(`/api/powerbi?path=${path}`, {
+      const url =
+        clientId != null
+          ? `/api/powerbi?clientId=${encodeURIComponent(clientId)}&path=${encodeURIComponent(path)}`
+          : `/api/powerbi?path=${encodeURIComponent(path)}`;
+      response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accessLevel: 'View' })
@@ -131,20 +138,18 @@ export const getEmbedToken = async (workspaceId: string, reportId: string): Prom
  * Obtém a lista de todos os workspaces do Power BI.
  * @returns Promise<Workspace[]> A lista de workspaces.
  */
-export const getWorkspaces = async (): Promise<Workspace[]> => {
-  const accessToken = await getAccessToken();
+export const getWorkspaces = async (clientId?: string): Promise<Workspace[]> => {
+  const accessToken = await getAccessToken(clientId);
   
   try {
     let response;
     const path = "v1.0/myorg/groups";
     
-    if (import.meta.env.DEV) {
-      response = await fetch(`/powerbi-api/${path}`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      });
-    } else {
-      response = await fetch(`/api/powerbi?path=${path}`);
-    }
+    const url =
+      clientId != null
+        ? `/api/powerbi?clientId=${encodeURIComponent(clientId)}&path=${encodeURIComponent(path)}`
+        : `/api/powerbi?path=${encodeURIComponent(path)}`;
+    response = await fetch(url);
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -164,20 +169,21 @@ export const getWorkspaces = async (): Promise<Workspace[]> => {
  * @param workspaceId O ID do workspace.
  * @returns Promise<Report[]> A lista de relatórios.
  */
-export const getReportsInWorkspace = async (workspaceId: string): Promise<Report[]> => {
-  const accessToken = await getAccessToken();
+export const getReportsInWorkspace = async (
+  workspaceId: string,
+  clientId?: string,
+): Promise<Report[]> => {
+  const accessToken = await getAccessToken(clientId);
   
   try {
     let response;
     const path = `v1.0/myorg/groups/${workspaceId}/reports`;
     
-    if (import.meta.env.DEV) {
-      response = await fetch(`/powerbi-api/${path}`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      });
-    } else {
-      response = await fetch(`/api/powerbi?path=${path}`);
-    }
+    const url =
+      clientId != null
+        ? `/api/powerbi?clientId=${encodeURIComponent(clientId)}&path=${encodeURIComponent(path)}`
+        : `/api/powerbi?path=${encodeURIComponent(path)}`;
+    response = await fetch(url);
     
     if (!response.ok) {
       const errorText = await response.text();
@@ -196,13 +202,13 @@ export const getReportsInWorkspace = async (workspaceId: string): Promise<Report
  * Obtém todos os relatórios de todos os workspaces.
  * @returns Promise<Report[]> Uma lista consolidada de todos os relatórios.
  */
-export const getAllReports = async (): Promise<Report[]> => {
+export const getAllReports = async (clientId?: string): Promise<Report[]> => {
   try {
-    const workspaces = await getWorkspaces();
+    const workspaces = await getWorkspaces(clientId);
     let allReports: Report[] = [];
 
     for (const workspace of workspaces) {
-      const reports = await getReportsInWorkspace(workspace.id);
+      const reports = await getReportsInWorkspace(workspace.id, clientId);
       const reportsWithWorkspaceData = reports.map(report => ({
         ...report,
         workspaceId: workspace.id,
@@ -223,20 +229,22 @@ export const getAllReports = async (): Promise<Report[]> => {
  * @param reportId O ID do relatório.
  * @returns Promise<ReportPage[]> A lista de páginas.
  */
-export const getReportPages = async (workspaceId: string, reportId: string): Promise<ReportPage[]> => {
-  const accessToken = await getAccessToken();
+export const getReportPages = async (
+  workspaceId: string,
+  reportId: string,
+  clientId?: string,
+): Promise<ReportPage[]> => {
+  const accessToken = await getAccessToken(clientId);
   
   try {
     let response;
     const path = `v1.0/myorg/groups/${workspaceId}/reports/${reportId}/pages`;
     
-    if (import.meta.env.DEV) {
-      response = await fetch(`/powerbi-api/${path}`, {
-        headers: { 'Authorization': `Bearer ${accessToken}` }
-      });
-    } else {
-      response = await fetch(`/api/powerbi?path=${path}`);
-    }
+    const url =
+      clientId != null
+        ? `/api/powerbi?clientId=${encodeURIComponent(clientId)}&path=${encodeURIComponent(path)}`
+        : `/api/powerbi?path=${encodeURIComponent(path)}`;
+    response = await fetch(url);
     
     if (!response.ok) {
       const errorText = await response.text();

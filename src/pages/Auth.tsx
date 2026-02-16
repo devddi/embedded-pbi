@@ -76,7 +76,7 @@ export default function Auth() {
         <div className="text-center mb-8">
           <div className="inline-block mb-4">
             <img
-              src="https://rzdepoejfchewvjzojan.supabase.co/storage/v1/object/public/fotos/fotos/fotos-escudos/logo_.png"
+              src={import.meta.env.VITE_BRAND_LOGO_URL as string}
               alt="Hub - Eurostock Logo"
               className="w-20 h-20 object-cover object-center border-2 border-primary rounded-lg shadow-lg shadow-primary/50"
             />

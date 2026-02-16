@@ -25,25 +25,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const navigate = useNavigate();
 
   const fetchUserAuthDetails = async (userId: string) => {
-    // Fetch user role
-    const { data: roleData, error: roleError } = await supabase
-      .from("projects_user_roles")
+    const { data: rolesData, error: rolesError } = await supabase
+      .from("user_roles")
       .select("role")
-      .eq("user_id", userId)
-      .single();
+      .eq("user_id", userId);
 
-    if (roleError) {
-      console.error("Erro ao buscar role do usuário:", roleError);
+    if (rolesError) {
+      console.error("Erro ao buscar roles do usuário:", rolesError);
       setUserRole(null);
-    } else if (roleData) {
-      setUserRole(roleData.role);
+    } else if (rolesData && rolesData.length > 0) {
+      const rolePriority = ["admin_master", "admin", "user"] as const;
+      const sortedRoles = [...rolesData].sort(
+        (a, b) =>
+          rolePriority.indexOf(a.role as (typeof rolePriority)[number]) -
+          rolePriority.indexOf(b.role as (typeof rolePriority)[number])
+      );
+      setUserRole(sortedRoles[0].role);
     } else {
       setUserRole(null);
     }
 
-    // Fetch user active status from projects_profiles
+    // Fetch user active status from profiles
     const { data: profileData, error: profileError } = await supabase
-      .from("projects_profiles")
+      .from("profiles")
       .select("is_active")
       .eq("id", userId)
       .single();

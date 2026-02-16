@@ -3,15 +3,11 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Card } from "@/components/ui/card";
 import { PageLayout } from "@/components/PageLayout";
 import { 
-  FolderKanban, 
   BarChart3, 
-  FileSpreadsheet, 
-  MessageSquare, 
   Users, 
-  RefreshCw,
-  LayoutDashboard,
   ShieldCheck,
-  Tv
+  Tv,
+  Building2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { BackgroundVideo } from "@/components/BackgroundVideo";
@@ -26,64 +22,14 @@ export default function Welcome() {
 
   const menuItems = [
     {
-      title: "Dashboard de Projetos",
-      description: "Visualize o status e progresso de todos os projetos ativos.",
-      icon: LayoutDashboard,
-      path: "/dashboard",
-      roles: ["admin_master", "admin"],
-      color: "text-blue-400",
-      bgColor: "bg-blue-400/10",
-      borderColor: "border-blue-400/20"
-    },
-    {
-      title: "Gestão de Projetos",
-      description: "Gerencie tarefas, atividades e cronogramas detalhados.",
-      icon: FolderKanban,
-      path: "/projects",
-      roles: ["admin_master", "admin"],
-      color: "text-cyan-400",
-      bgColor: "bg-cyan-400/10",
-      borderColor: "border-cyan-400/20"
-    },
-    {
       title: "Power BI",
       description: "Acesse relatórios e dashboards analíticos do Power BI.",
       icon: BarChart3,
       path: "/powerbi",
-      roles: ["admin_master", "admin", "user", "consorcio"],
+      roles: ["admin_master", "admin", "user"],
       color: "text-primary",
       bgColor: "bg-primary/10",
       borderColor: "border-primary/20"
-    },
-    {
-      title: "IA Chat",
-      description: "Interaja com nossa inteligência artificial para insights.",
-      icon: MessageSquare,
-      path: "/chat",
-      roles: ["admin_master", "admin", "user", "consorcio"],
-      color: "text-purple-400",
-      bgColor: "bg-purple-400/10",
-      borderColor: "border-purple-400/20"
-    },
-    {
-      title: "Consórcios",
-      description: "Acompanhe e gerencie os dados de consórcios.",
-      icon: FileSpreadsheet,
-      path: "/consorcios",
-      roles: ["admin_master", "consorcio"],
-      color: "text-primary",
-      bgColor: "bg-primary/10",
-      borderColor: "border-primary/20"
-    },
-    {
-      title: "Atualizações BD",
-      description: "Gerencie e acompanhe atualizações do banco de dados BI.",
-      icon: RefreshCw,
-      path: "/bi-dashboard",
-      roles: ["admin_master"],
-      color: "text-pink-400",
-      bgColor: "bg-pink-400/10",
-      borderColor: "border-pink-400/20"
     },
     {
       title: "Gestão de Usuários",
@@ -94,6 +40,16 @@ export default function Welcome() {
       color: "text-indigo-400",
       bgColor: "bg-indigo-400/10",
       borderColor: "border-indigo-400/20"
+    },
+    {
+      title: "Clientes Power BI",
+      description: "Configure credenciais para buscar dashboards por cliente.",
+      icon: Building2,
+      path: "/clients",
+      roles: ["admin_master"],
+      color: "text-amber-400",
+      bgColor: "bg-amber-400/10",
+      borderColor: "border-amber-400/20"
     },
     {
       title: "TV Dashboards",

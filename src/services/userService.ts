@@ -5,10 +5,8 @@ export interface UserProfile {
   first_name: string | null;
   last_name: string | null;
   email: string | null;
-  profile_image_url: string | null;
   is_active: boolean | null;
   role: string | null; // Adicionado para incluir o papel do usuário
-  codigo: string | null; // Adicionado para incluir o código do usuário
 }
 
 /**
@@ -18,14 +16,12 @@ export interface UserProfile {
 export const getAllUsers = async (): Promise<UserProfile[]> => {
   try {
     const { data: profilesData, error: profilesError } = await supabase
-      .from("projects_profiles")
+      .from("profiles")
       .select(`
         id,
         first_name,
         last_name,
-        profile_image_url,
-        is_active,
-        codigo
+        is_active
       `);
 
     if (profilesError) {
@@ -35,7 +31,7 @@ export const getAllUsers = async (): Promise<UserProfile[]> => {
 
     // 2. Buscar todos os papéis dos usuários
     const { data: rolesData, error: rolesError } = await supabase
-      .from("projects_user_roles")
+      .from("user_roles")
       .select(`
         user_id,
         role
@@ -55,22 +51,10 @@ export const getAllUsers = async (): Promise<UserProfile[]> => {
       return acc;
     }, {} as Record<string, string[]>);
 
-    // 3. Buscar emails dos usuários do auth.users (COMENTADO TEMPORARIAMENTE DEVIDO A ERRO DE PERMISSÃO)
-    // const userIds = profilesData.map(profile => profile.id);
-    // const { data: authUsers, error: authError } = await supabase.auth.admin.listUsers({
-    //   ids: userIds,
-    // });
-
-    // if (authError) {
-    //   console.error("Erro ao buscar emails dos usuários:", authError);
-    //   throw new Error(`Erro ao buscar emails dos usuários: ${authError.message}`);
-    // }
-
     // 4. Combinar todos os dados
     const usersWithEmailAndRole = profilesData.map(profile => {
-      // const authUser = authUsers.users.find(u => u.id === profile.id);
       const roles = userRolesMap[profile.id] || [];
-      // Para simplificar, pegamos o primeiro papel. Se precisar de múltiplos, a interface UserProfile precisaria ser ajustada.
+      // Para simplificar, pegamos o primeiro papel.
       const primaryRole = roles.length > 0 ? roles[0] : null;
 
       return {
@@ -78,10 +62,8 @@ export const getAllUsers = async (): Promise<UserProfile[]> => {
         first_name: profile.first_name,
         last_name: profile.last_name,
         email: null, // Definido como null temporariamente
-        profile_image_url: profile.profile_image_url,
         is_active: profile.is_active,
         role: primaryRole,
-        codigo: profile.codigo,
       };
     });
 

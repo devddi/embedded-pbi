@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import { MessageSquarePlus, Camera, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,16 +42,10 @@ export const ReportBugButton = () => {
   const [photo, setPhoto] = useState<File | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
-  useEffect(() => {
-    if (user && isOpen) {
-      loadUserProfile();
-    }
-  }, [user, isOpen]);
-
-  const loadUserProfile = async () => {
+  const loadUserProfile = useCallback(async () => {
     try {
       const { data, error } = await supabase
-        .from("projects_profiles")
+        .from("profiles")
         .select("first_name, last_name")
         .eq("id", user?.id)
         .single();
@@ -61,7 +55,13 @@ export const ReportBugButton = () => {
     } catch (error) {
       console.error("Erro ao carregar perfil do usuário para reporte:", error);
     }
-  };
+  }, [user]);
+
+  useEffect(() => {
+    if (user && isOpen) {
+      loadUserProfile();
+    }
+  }, [user, isOpen, loadUserProfile]);
 
   // Define as rotas onde o botão deve aparecer
   // No mobile, apenas na home (/). No desktop, em /, /chat e /powerbi.
