@@ -22,15 +22,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const supabaseClient = createClient(supabaseUrl, supabaseServiceRoleKey);
 
   try {
-    const clientId =
-      typeof clientIdQuery === 'string' ? clientIdQuery : Array.isArray(clientIdQuery) ? clientIdQuery[0] : undefined;
+    const clientIdParam =
+      typeof clientIdQuery === 'string'
+        ? clientIdQuery
+        : Array.isArray(clientIdQuery)
+          ? clientIdQuery[0]
+          : undefined;
 
     const baseQuery = supabaseClient
       .from('powerbi_clients')
       .select('tenant_id, client_id, client_secret');
 
-    const { data, error } = clientId
-      ? await baseQuery.eq('id', clientId).limit(1)
+    const { data, error } = clientIdParam
+      ? await baseQuery.eq('id', clientIdParam).limit(1)
       : await baseQuery.order('created_at', { ascending: true }).limit(1);
 
     if (error) {
