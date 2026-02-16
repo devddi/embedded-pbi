@@ -8,47 +8,58 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    /* Dark glassmorphism theme */
-    --background: 0 0% 5.5%;
-    --foreground: 0 0% 98%;
+    /* Clean ice blue theme with turquoise accents */
+    --background: 199 40% 8%;
+    --foreground: 180 15% 98%;
 
-    --card: 0 0% 8%;
-    --card-foreground: 0 0% 98%;
+    --card: 199 35% 10%;
+    --card-foreground: 180 15% 98%;
 
-    --popover: 0 0% 6%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 199 40% 9%;
+    --popover-foreground: 180 15% 98%;
 
-    /* Golden yellow primary color (#FAC017) */
-    --primary: 45 96% 54%;
-    --primary-foreground: 0 0% 5%;
+    /* Turquoise primary color (#189AB4) */
+    --primary: 191 74% 40%;
+    --primary-foreground: 180 15% 98%;
 
-    --secondary: 0 0% 12%;
-    --secondary-foreground: 0 0% 98%;
+    /* Light cyan accent (#75E6DA) */
+    --accent: 174 68% 68%;
+    --accent-foreground: 199 89% 19%;
 
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 60%;
+    --secondary: 199 50% 15%;
+    --secondary-foreground: 180 15% 98%;
 
-    --accent: 45 96% 54%;
-    --accent-foreground: 0 0% 98%;
+    --muted: 199 30% 20%;
+    --muted-foreground: 180 10% 65%;
 
     --destructive: 0 72% 51%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive-foreground: 180 15% 98%;
 
-    --border: 0 0% 20%;
-    --input: 0 0% 15%;
-    --ring: 45 96% 54%;
+    --border: 199 30% 22%;
+    --input: 199 35% 18%;
+    --ring: 191 74% 40%;
 
     --radius: 0.75rem;
 
     /* Glassmorphism specific */
-    --glass-bg: 0 0% 8% / 0.7;
-    --glass-border: 0 0% 25% / 0.3;
-    --glass-glow: 45 96% 54% / 0.15;
+    --glass-bg: 199 40% 10% / 0.7;
+    --glass-border: 174 68% 68% / 0.15;
+    --glass-glow: 174 68% 68% / 0.12;
 
     /* Status colors */
     --status-pending: 45 93% 47%;
-    --status-in-progress: 217 91% 60%;
+    --status-in-progress: 191 74% 40%;
     --status-completed: 142 76% 36%;
+
+    /* Sidebar - Dark navy blue (#05445E) */
+    --sidebar-background: 199 89% 19%;
+    --sidebar-foreground: 180 15% 98%;
+    --sidebar-primary: 174 68% 68%;
+    --sidebar-primary-foreground: 199 89% 19%;
+    --sidebar-accent: 199 80% 25%;
+    --sidebar-accent-foreground: 180 15% 98%;
+    --sidebar-border: 199 70% 28%;
+    --sidebar-ring: 174 68% 68%;
   }
 }
 
@@ -63,30 +74,37 @@ All colors MUST be HSL.
 
   /* Glassmorphism effects */
   .glass {
-    background: rgba(20, 20, 20, 0.7);
+    background: rgba(5, 68, 94, 0.5);
     backdrop-filter: blur(10px);
-    border: 1px solid rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(117, 230, 218, 0.15);
   }
 
   .glass-card {
-    background: rgba(30, 30, 30, 0.6);
+    background: rgba(10, 70, 95, 0.6);
     backdrop-filter: blur(12px);
-    border: 1px solid rgba(250, 192, 23, 0.2);
-    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+    border: 1px solid rgba(117, 230, 218, 0.2);
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
   }
 
   .glow-cyan {
-    box-shadow: 0 0 20px rgba(250, 192, 23, 0.3), 0 0 40px rgba(250, 192, 23, 0.1);
+    box-shadow: 0 0 20px rgba(117, 230, 218, 0.3), 0 0 40px rgba(117, 230, 218, 0.1);
   }
 
   .glow-cyan-sm {
-    box-shadow: 0 0 10px rgba(250, 192, 23, 0.2);
+    box-shadow: 0 0 10px rgba(117, 230, 218, 0.2);
   }
 }
 
 @layer utilities {
   .text-gradient-cyan {
-    background: linear-gradient(135deg, #FAC017 0%, #F59E0B 100%);
+    background: linear-gradient(135deg, #75E6DA 0%, #189AB4 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .text-gradient-primary {
+    background: linear-gradient(135deg, hsl(var(--accent)) 0%, hsl(var(--primary)) 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -98,10 +116,10 @@ All colors MUST be HSL.
 
   @keyframes glow {
     from {
-      box-shadow: 0 0 10px rgba(250, 192, 23, 0.2);
+      box-shadow: 0 0 10px rgba(117, 230, 218, 0.2);
     }
     to {
-      box-shadow: 0 0 20px rgba(250, 192, 23, 0.4), 0 0 30px rgba(250, 192, 23, 0.2);
+      box-shadow: 0 0 20px rgba(117, 230, 218, 0.4), 0 0 30px rgba(117, 230, 218, 0.2);
     }
   }
 
@@ -111,6 +129,25 @@ All colors MUST be HSL.
 
   .hover-lift:hover {
     transform: translateY(-2px);
+  }
+
+  /* Smooth scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.5);
   }
 
   /* Custom styles for date input calendar icons */

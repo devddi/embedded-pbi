@@ -76,16 +76,16 @@ export default function Auth() {
         <div className="text-center mb-8">
           <div className="inline-block mb-4">
             <img
-              src={import.meta.env.VITE_BRAND_LOGO_URL as string}
-              alt="Hub - Eurostock Logo"
-              className="w-20 h-20 object-cover object-center border-2 border-primary rounded-lg shadow-lg shadow-primary/50"
+              src={(import.meta.env.VITE_BRAND_LOGO_URL as string) || "https://xatiqvtpqoipofqretoe.supabase.co/storage/v1/object/public/Gerais/logo_ddi.png"}
+              alt="Hub - DDInsights Logo"
+              className="h-20 w-auto object-contain"
             />
           </div>
           <h1 className="text-3xl font-bold mb-2 text-gradient-cyan">
-            Hub - Eurostock
+            Hub - DDInsights
           </h1>
           <p className="text-muted-foreground">
-            Sistema de dados e IA Eurostock
+            Sistema de Business Intelligence e Análise de Dados
           </p>
         </div>
 

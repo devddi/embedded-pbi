@@ -73,7 +73,7 @@ export default function Welcome() {
       <div className="container mx-auto px-4 py-12 max-w-6xl relative z-10">
         <div className="text-center mb-12 animate-fade-in">
           <h1 className="text-4xl md:text-5xl font-bold mb-4 text-gradient-cyan">
-            Bem-vindo ao Hub - Eurostock
+            Bem-vindo ao Hub - DDInsights
           </h1>
           <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
             Selecione uma das seções abaixo para começar a navegar no sistema.

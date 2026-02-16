@@ -62,7 +62,9 @@ export default function Users() {
     role: "user",
     is_active: true,
     email: "",
-    password: "", 
+    password: "",
+    phone: "",
+    profileImageUrl: "",
   });
 
   useEffect(() => {
@@ -195,6 +197,8 @@ export default function Users() {
       is_active: true,
       email: "",
       password: "",
+      phone: "",
+      profileImageUrl: "",
     });
     setPreviewImage(null);
     setIsCreateUserDialogOpen(true);
@@ -315,7 +319,7 @@ export default function Users() {
   const getRoleBadge = (role: string | null) => {
     if (role === "admin_master") {
       return (
-        <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30">
+        <Badge className="bg-accent/20 text-accent border-accent/30">
           <Shield className="w-3 h-3 mr-1" />
           Admin Master
         </Badge>
@@ -358,31 +362,23 @@ export default function Users() {
 
   return (
     <PageLayout>
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <div className="flex items-center justify-between mb-8 animate-fade-in">
-            <div>
-              <Button
-                variant="outline"
-                onClick={() => navigate(-1)}
-                className="mb-4 flex items-center gap-2"
-              >
-                <ArrowLeft className="w-4 h-4" />
-                Voltar
-              </Button>
-              <h1 className="text-4xl font-bold mb-2 text-gradient-cyan">
-                Gerenciamento de Usuários
-              </h1>
-              <p className="text-muted-foreground">
-                Visualize e gerencie os usuários do sistema
-              </p>
-            </div>
-            {userRole === "admin_master" && (
-              <Button onClick={() => handleCreateUserClick()}>
-                <UserIcon className="w-4 h-4 mr-2" />
-                Criar Usuário
-              </Button>
-            )}
+      <div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 animate-fade-in">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-bold mb-2">
+              Gerenciamento de Usuários
+            </h1>
+            <p className="text-muted-foreground">
+              Visualize e gerencie os usuários do sistema
+            </p>
           </div>
+          {userRole === "admin_master" && (
+            <Button onClick={() => handleCreateUserClick()} className="w-fit">
+              <UserIcon className="w-4 h-4 mr-2" />
+              Criar Usuário
+            </Button>
+          )}
+        </div>
 
         <div className="mb-6 relative max-w-md animate-fade-in">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
@@ -413,7 +409,7 @@ export default function Users() {
                     <TableCell>{getRoleBadge(userItem.role)}</TableCell>
                     {userRole === "admin_master" && (
                       <TableCell>
-                        <Button
+                          <Button
                           variant="outline"
                           size="sm"
                           onClick={() => {
@@ -424,7 +420,9 @@ export default function Users() {
                               role: userItem.role || "user",
                               is_active: userItem.is_active ?? true,
                               email: "",
-                              password: "", 
+                              password: "",
+                              phone: "",
+                              profileImageUrl: "",
                             });
                             setOpen(true);
                           }}
@@ -463,7 +461,9 @@ export default function Users() {
                         role: userItem.role || "user",
                         is_active: userItem.is_active ?? true,
                         email: "",
-                        password: "", 
+                        password: "",
+                        phone: "",
+                        profileImageUrl: "",
                       });
                       setOpen(true);
                     }}

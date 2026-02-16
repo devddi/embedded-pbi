@@ -5,7 +5,7 @@ interface BackgroundVideoProps {
 }
 
 export const BackgroundVideo = ({ 
-  videoUrl = import.meta.env.VITE_LOGIN_VIDEO_URL as string,
+  videoUrl = "https://xatiqvtpqoipofqretoe.supabase.co/storage/v1/object/public/Gerais/login.mp4",
   opacity = "opacity-30"
 }: BackgroundVideoProps) => {
   return (

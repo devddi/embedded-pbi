@@ -100,7 +100,7 @@ export const Header = () => {
   const getRoleBadge = () => {
     if (userRole === "admin_master") {
       return (
-        <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/30 text-[10px] py-0 h-4">
+        <Badge className="bg-accent/20 text-accent border-accent/30 text-[10px] py-0 h-4">
           <Shield className="w-2 h-2 mr-1" />
           Admin Master
         </Badge>
@@ -133,12 +133,12 @@ export const Header = () => {
             className="flex items-center gap-3 text-lg md:text-xl font-bold text-gradient-cyan hover:opacity-80 transition-opacity"
           >
             <img
-              src={import.meta.env.VITE_BRAND_LOGO_URL as string}
-              alt="Hub - Eurostock Logo"
-              className="w-10 h-10 object-cover object-center"
+              src={(import.meta.env.VITE_BRAND_LOGO_URL as string) || "https://xatiqvtpqoipofqretoe.supabase.co/storage/v1/object/public/Gerais/logo_ddi.png"}
+              alt="Hub - DDInsights Logo"
+              className="h-10 w-auto object-contain"
             />
             <span className="truncate">
-              Hub - Eurostock
+              Hub - DDInsights
             </span>
           </button>
           

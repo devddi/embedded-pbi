@@ -30,7 +30,7 @@ export const getDashboardSettings = async (
     throw new Error(`Erro ao buscar configurações do dashboard: ${error.message}`);
   }
 
-  return data || null;
+  return data as DashboardSettings | null;
 };
 
 /**
@@ -45,7 +45,7 @@ export const getAllDashboardSettings = async (): Promise<DashboardSettings[]> =>
     throw new Error(`Erro ao buscar todas as configurações de dashboards: ${error.message}`);
   }
 
-  return data || [];
+  return (data || []) as DashboardSettings[];
 };
 
 /**
@@ -75,7 +75,7 @@ export const upsertDashboardSettings = async (
     throw new Error(`Erro ao salvar configurações do dashboard: ${error.message}`);
   }
 
-  return data;
+  return data as DashboardSettings;
 };
 
 /**

@@ -24,6 +24,8 @@ export default function DashboardManagement() {
   const [users, setUsers] = useState<UserProfile[]>([]); // New state
   const [dashboardSettings, setDashboardSettings] = useState<Record<string, DashboardSettings>>({}); // New state
   const [savingSettings, setSavingSettings] = useState<Record<string, boolean>>({}); // New state for saving status
+  const [page, setPage] = useState(1);
+  const pageSize = 9;
 
   useEffect(() => {
     const fetchData = async () => {
@@ -55,6 +57,7 @@ export default function DashboardManagement() {
 
         setWorkspaces(clientWorkspaces);
         setReports(fetchedReports);
+        setPage(1);
 
         const firstWorkspaceId = clientWorkspaces[0]?.id ?? null;
         setSelectedWorkspaceId(firstWorkspaceId);
@@ -125,9 +128,12 @@ export default function DashboardManagement() {
       : reports;
 
   return (
-    <PageLayout title="Gerenciar Dashboards">
-      <div className="container mx-auto px-4 py-8 max-w-7xl">
-        <h2 className="text-2xl font-bold mb-4">Configuração de Dashboards Power BI por Cliente</h2>
+    <PageLayout>
+      <div className="container mx-auto px-4 py-6 md:py-8 max-w-7xl">
+        <div className="mb-6 animate-fade-in">
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">Gerenciar Dashboards</h1>
+          <p className="text-muted-foreground">Configuração de Dashboards Power BI por Cliente</p>
+        </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 mb-8">
           <Card className="h-full">
@@ -155,6 +161,7 @@ export default function DashboardManagement() {
                         if (!client.id) return;
                         setSelectedClientId(client.id);
                         setSelectedWorkspaceId(null);
+                        setPage(1);
                         setLoading(true);
                         setError(null);
                         try {
@@ -196,9 +203,6 @@ export default function DashboardManagement() {
                       }`}
                     >
                       <span className="truncate">{client.name}</span>
-                      <span className="ml-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                        {client.email}
-                      </span>
                     </button>
                   ))}
                 </div>
@@ -272,8 +276,38 @@ export default function DashboardManagement() {
         )}
 
         {!loading && filteredReports.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredReports.map((report) => {
+          <>
+            <div className="flex items-center justify-between mb-4">
+              <p className="text-sm text-muted-foreground">
+                Mostrando{" "}
+                {Math.min((page - 1) * pageSize + 1, filteredReports.length)}-
+                {Math.min(page * pageSize, filteredReports.length)} de {filteredReports.length}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                >
+                  Anterior
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    setPage((p) =>
+                      p * pageSize >= filteredReports.length ? p : p + 1
+                    )
+                  }
+                  disabled={page * pageSize >= filteredReports.length}
+                >
+                  Próxima
+                </Button>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredReports
+              .slice((page - 1) * pageSize, page * pageSize)
+              .map((report) => {
               const settings = dashboardSettings[report.id];
               const isSaving = savingSettings[report.id];
 
@@ -329,7 +363,8 @@ export default function DashboardManagement() {
                 </Card>
               );
             })}
-          </div>
+            </div>
+          </>
         )}
       </div>
     </PageLayout>

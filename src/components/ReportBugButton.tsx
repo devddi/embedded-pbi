@@ -157,7 +157,7 @@ export const ReportBugButton = () => {
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-primary">Reportar Problema / Sugestão</DialogTitle>
             <DialogDescription>
-              Ajude-nos a melhorar o Hub - Eurostock. Descreva o bug ou sua sugestão abaixo.
+              Ajude-nos a melhorar o Hub - DDInsights. Descreva o bug ou sua sugestão abaixo.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">

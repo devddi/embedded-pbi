@@ -1,14 +1,16 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
-import { Header } from "@/components/Header";
+import { AppSidebar } from "@/components/AppSidebar";
+import { ModernHeader } from "@/components/ModernHeader";
 import { ReportBugButton } from "@/components/ReportBugButton";
 import Users from "./pages/Users";
-import Welcome from "./pages/Welcome";
+import ModernWelcome from "./pages/ModernWelcome";
 import Auth from "./pages/Auth";
 import NotFound from "./pages/NotFound";
 import PowerBIEmbedPage from "./pages/Powerbiembed";
@@ -20,29 +22,39 @@ import Clients from "./pages/Clients";
 
 const queryClient = new QueryClient();
 
-const HeaderWrapper = () => {
+const AppLayout = () => {
   const location = useLocation();
-  const isChatPage = location.pathname === "/chat";
+  const isAuthPage = location.pathname === "/auth";
   const isTVViewerPage = location.pathname.startsWith("/tv-viewer");
-  return !isChatPage && !isTVViewerPage ? <Header /> : null;
-};
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <AuthProvider>
-          <HeaderWrapper />
-          <ReportBugButton />
+  if (isAuthPage || isTVViewerPage) {
+    return (
+      <Routes>
+        <Route path="/auth" element={<Auth />} />
+        <Route
+          path="/tv-viewer/:id"
+          element={
+            <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
+              <TVPresentationViewer />
+            </ProtectedRoute>
+          }
+        />
+      </Routes>
+    );
+  }
+
+  return (
+    <SidebarProvider defaultOpen={true}>
+      <AppSidebar />
+      <SidebarInset className="flex flex-col">
+        <ModernHeader />
+        <main className="flex-1 overflow-auto">
           <Routes>
-            <Route path="/auth" element={<Auth />} />
             <Route
               path="/"
               element={
                 <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
-                  <Welcome />
+                  <ModernWelcome />
                 </ProtectedRoute>
               }
             />
@@ -94,17 +106,23 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/tv-viewer/:id"
-              element={
-                <ProtectedRoute allowedRoles={["admin_master", "admin", "user"]}>
-                  <TVPresentationViewer />
-                </ProtectedRoute>
-              }
-            />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
+        </main>
+        <ReportBugButton />
+      </SidebarInset>
+    </SidebarProvider>
+  );
+};
+
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <AuthProvider>
+          <AppLayout />
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
