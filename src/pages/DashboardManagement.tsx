@@ -109,7 +109,7 @@ export default function DashboardManagement() {
           const existingSetting = fetchedSettings.find(s => s.dashboard_id === report.id);
           clientSettings[report.id] = existingSetting || {
             dashboard_id: report.id,
-            is_visible: true,
+            is_visible: false,
             assigned_users: [],
           };
         });
@@ -337,7 +337,7 @@ export default function DashboardManagement() {
                       <Label htmlFor={`visibility-${report.id}`}>Visível</Label>
                       <Switch
                         id={`visibility-${report.id}`}
-                        checked={settings?.is_visible ?? true}
+                        checked={settings?.is_visible ?? false}
                         onCheckedChange={(checked) =>
                           handleSettingChange(report.id, "is_visible", checked)
                         }
