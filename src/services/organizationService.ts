@@ -144,15 +144,29 @@ export const organizationService = {
    * Get organizations a user belongs to
    */
   async getUserOrganizations(userId: string): Promise<Organization[]> {
-     const { data, error } = await supabase
+     const { data: memberData, error: memberError } = await supabase
       .from(MEMBERS_TABLE)
       .select(`
         organization:organizations(*)
       `)
       .eq("user_id", userId);
 
-      if (error) throw error;
+      if (memberError) throw memberError;
       
-      return data.map((item: any) => item.organization) as Organization[];
+      const memberOrgs = memberData.map((item: any) => item.organization) as Organization[];
+
+      // Also get organizations where user is owner
+      const { data: ownerData, error: ownerError } = await supabase
+        .from(TABLE_NAME)
+        .select("*")
+        .eq("owner_id", userId);
+
+      if (ownerError) throw ownerError;
+
+      // Merge and deduplicate
+      const allOrgs = [...memberOrgs, ...(ownerData as Organization[])];
+      const uniqueOrgs = Array.from(new Map(allOrgs.map(org => [org.id, org])).values());
+      
+      return uniqueOrgs;
   }
 };

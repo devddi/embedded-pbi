@@ -10,6 +10,7 @@ import { PowerBIEmbed } from "powerbi-client-react";
 import { models } from "powerbi-client";
 import { getAllDashboardSettings } from "@/services/dashboardSettingsService";
 import { getWorkspaces, getReportsInWorkspace, getEmbedToken, Workspace, Report } from "@/services/powerBiApiService";
+import { powerbiClientsService, PowerBIClient } from "@/services/powerbiClientsService"; // Import service
 import {
   Select,
   SelectContent,
@@ -17,6 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+
+import { organizationService } from "@/services/organizationService"; // Import organization service
 
 export default function PowerBIEmbedPage() {
   const { user, userRole } = useAuth();
@@ -30,6 +33,11 @@ export default function PowerBIEmbedPage() {
   const [currentReport, setCurrentReport] = useState<Report | null>(null);
   const [embedToken, setEmbedToken] = useState<string | null>(null);
   
+  // Estados para Multi-Client (Admin Master e Admin de Org)
+  const [clients, setClients] = useState<PowerBIClient[]>([]);
+  const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const [canSelectClient, setCanSelectClient] = useState(false);
+
   // Estados de UI
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,7 +58,7 @@ export default function PowerBIEmbedPage() {
     setEmbedToken(null); // Clear token to force re-render
     
     try {
-      const token = await getEmbedToken(currentWorkspace.id, report.id);
+      const token = await getEmbedToken(currentWorkspace.id, report.id, selectedClientId || undefined);
       setEmbedToken(token);
       setCurrentReport(report);
       setView("embed");
@@ -62,7 +70,7 @@ export default function PowerBIEmbedPage() {
       setLoading(false);
       setStatusMessage("");
     }
-  }, [currentWorkspace, getEmbedToken]);
+  }, [currentWorkspace, getEmbedToken, selectedClientId]);
 
   // Handle Refresh
   const handleRefresh = useCallback(async () => {
@@ -107,8 +115,75 @@ export default function PowerBIEmbedPage() {
 
   // Inicializar - Carregar workspaces automaticamente
   useEffect(() => {
-    loadWorkspaces();
-  }, []);
+    const init = async () => {
+      // Admin Master vê TUDO
+      if (userRole === "admin_master") {
+        setCanSelectClient(true);
+        try {
+          const clientsList = await powerbiClientsService.list();
+          setClients(clientsList);
+          
+          if (clientsList.length > 0) {
+            const firstClient = clientsList[0];
+            setSelectedClientId(firstClient.id || null);
+            loadWorkspaces(firstClient.id);
+          } else {
+             loadWorkspaces();
+          }
+        } catch (e) {
+          console.error("Erro ao carregar clientes (admin_master):", e);
+          setError("Erro ao carregar lista de clientes Power BI.");
+        }
+      } 
+      // Admin de Organização vê clientes das SUAS organizações
+      else if (userRole === "admin" && user) {
+        setCanSelectClient(true);
+        try {
+          // 1. Busca as organizações do usuário
+          const myOrgs = await organizationService.getUserOrganizations(user.id);
+          
+          if (myOrgs.length > 0) {
+             // 2. Busca clientes de TODAS as organizações do usuário
+             // Como o serviço powerbiClientsService.list() filtra por UMA org por vez, 
+             // vamos fazer chamadas paralelas e juntar tudo.
+             const clientsPromises = myOrgs.map(org => powerbiClientsService.list(org.id));
+             const clientsArrays = await Promise.all(clientsPromises);
+             // Flatten array de arrays
+             const myClients = clientsArrays.flat();
+
+             // Remove duplicatas se houver (por segurança)
+             const uniqueClients = Array.from(new Map(myClients.map(c => [c.id, c])).values());
+
+             setClients(uniqueClients);
+
+             if (uniqueClients.length > 0) {
+               const firstClient = uniqueClients[0];
+               setSelectedClientId(firstClient.id || null);
+               loadWorkspaces(firstClient.id);
+             } else {
+               // Admin sem clientes PowerBI configurados na sua org
+               setError("Nenhum cliente Power BI encontrado para sua organização.");
+               setLoading(false);
+             }
+          } else {
+            // Admin sem organização
+            setError("Você não está vinculado a nenhuma organização.");
+            setLoading(false);
+          }
+        } catch (e) {
+          console.error("Erro ao carregar clientes (admin):", e);
+          setError("Erro ao carregar seus dados.");
+        }
+      }
+      else {
+        // Usuário normal (não admin): segue fluxo padrão
+        setCanSelectClient(false);
+        loadWorkspaces();
+      }
+    };
+
+    init();
+  }, [userRole, user]);
 
   // Carregar relatórios automaticamente do primeiro workspace
   useEffect(() => {
@@ -143,14 +218,19 @@ export default function PowerBIEmbedPage() {
   }, [isFullscreen, viewMode, view, handleViewModeChange]);
 
   // Carregar Workspaces
-  const loadWorkspaces = async () => {
-    console.log("Iniciando carregamento de workspaces...");
+  const loadWorkspaces = async (clientId?: string | null) => {
+    console.log("Iniciando carregamento de workspaces...", clientId);
     setLoading(true);
     setError(null);
     setStatusMessage("Carregando workspaces...");
     
+    // Atualiza o estado do cliente selecionado se passado
+    if (clientId !== undefined) {
+      setSelectedClientId(clientId);
+    }
+
     try {
-      const data = await getWorkspaces();
+      const data = await getWorkspaces(clientId || undefined);
       console.log("Workspaces carregados:", data.length || 0);
       setWorkspaces(data);
       setView("workspaces");
@@ -172,7 +252,7 @@ export default function PowerBIEmbedPage() {
     setStatusMessage(`Carregando relatórios de ${workspace.name}...`);
     
     try {
-      const allReports = await getReportsInWorkspace(workspace.id);
+      const allReports = await getReportsInWorkspace(workspace.id, selectedClientId || undefined);
       
       // Buscar configurações de visibilidade do Supabase
       const settings = await getAllDashboardSettings();
@@ -271,6 +351,31 @@ export default function PowerBIEmbedPage() {
               </p>
             </div>
           </div>
+
+          {/* Seletor de Cliente para Admin e Admin Master */}
+          {(userRole === "admin_master" || (userRole === "admin" && canSelectClient)) && clients.length > 0 && view !== "embed" && (
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium">Cliente:</span>
+              <Select
+                value={selectedClientId || ""}
+                onValueChange={(value) => {
+                  setSelectedClientId(value);
+                  loadWorkspaces(value);
+                }}
+              >
+                <SelectTrigger className="w-[200px]">
+                  <SelectValue placeholder="Selecione um cliente" />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id || ""}>
+                      {client.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         {/* Mensagens de Status/Erro */}
