@@ -13,7 +13,15 @@ import { getAllDashboardSettings, upsertDashboardSettings, DashboardSettings } f
 import { toast } from "sonner"; // New import
 import { powerbiClientsService, PowerBIClient } from "@/services/powerbiClientsService";
 
-import { organizationService } from "@/services/organizationService";
+import { organizationService, Organization } from "@/services/organizationService";
+
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 export default function DashboardManagement() {
   const [reports, setReports] = useState<Report[]>([]);
@@ -28,6 +36,7 @@ export default function DashboardManagement() {
   const [dashboardSettings, setDashboardSettings] = useState<Record<string, DashboardSettings>>({}); 
   const [savingSettings, setSavingSettings] = useState<Record<string, boolean>>({}); 
   const [page, setPage] = useState(1);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const pageSize = 9;
 
   useEffect(() => {
@@ -35,13 +44,15 @@ export default function DashboardManagement() {
       setLoading(true);
       setError(null);
       try {
-        const [fetchedClients, fetchedUsers] = await Promise.all([
+        const [fetchedClients, fetchedUsers, fetchedOrgs] = await Promise.all([
           powerbiClientsService.list(),
           getAllUsers(),
+          organizationService.list(),
         ]);
 
         setClients(fetchedClients);
         setAllUsers(fetchedUsers);
+        setOrganizations(fetchedOrgs);
         setFilteredUsers(fetchedUsers); // Default to all
 
         if (fetchedClients.length === 0) {
@@ -107,11 +118,20 @@ export default function DashboardManagement() {
         const clientSettings: Record<string, DashboardSettings> = {};
         clientReports.forEach(report => {
           const existingSetting = fetchedSettings.find(s => s.dashboard_id === report.id);
+          // Se existir, usa o organization_id que já estava salvo.
+          // Se não, usa o organization_id do Cliente Power BI como default
+          const defaultOrgId = existingSetting?.organization_id || client?.organization_id || undefined;
+
           clientSettings[report.id] = existingSetting || {
             dashboard_id: report.id,
             is_visible: false,
             assigned_users: [],
+            organization_id: defaultOrgId,
           };
+          // Se existir mas não tiver organization_id, preenche com o default (migração suave na UI)
+          if (clientSettings[report.id] && !clientSettings[report.id].organization_id) {
+             clientSettings[report.id].organization_id = defaultOrgId;
+          }
         });
         setDashboardSettings(clientSettings);
       } catch (e: unknown) {
@@ -136,7 +156,24 @@ export default function DashboardManagement() {
   ) => {
     setSavingSettings(prev => ({ ...prev, [dashboardId]: true }));
     const currentSettings = dashboardSettings[dashboardId];
-    const updatedSettings = { ...currentSettings, [key]: value };
+    
+    // Se o usuário estiver alterando o organization_id, usamos o valor passado.
+    // Se não, tentamos manter o que já existe ou, em último caso, usar o do cliente (fallback)
+    let organizationId = currentSettings?.organization_id;
+
+    if (key === "organization_id") {
+      organizationId = value;
+    } else if (!organizationId) {
+       // Se não tem org definida ainda, tenta pegar do cliente
+       const currentClient = clients.find(c => c.id === selectedClientId);
+       organizationId = currentClient?.organization_id || undefined;
+    }
+
+    const updatedSettings = { 
+      ...currentSettings, 
+      [key]: value,
+      organization_id: organizationId 
+    };
 
     setDashboardSettings(prev => ({
       ...prev,
@@ -343,6 +380,27 @@ export default function DashboardManagement() {
                         }
                         disabled={isSaving}
                       />
+                    </div>
+                    <div>
+                      <Label htmlFor={`org-${report.id}`} className="mb-2 block">
+                        Organização
+                      </Label>
+                      <Select
+                        value={settings?.organization_id || ""}
+                        onValueChange={(value) => handleSettingChange(report.id, "organization_id", value)}
+                        disabled={isSaving}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Selecione a organização" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {organizations.map((org) => (
+                            <SelectItem key={org.id} value={org.id}>
+                              {org.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </div>
                     <div>
                       <Label htmlFor={`assigned-users-${report.id}`} className="mb-2 block">

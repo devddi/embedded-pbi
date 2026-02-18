@@ -5,6 +5,7 @@ export interface DashboardSettings {
   dashboard_id: string;
   is_visible: boolean;
   assigned_users: string[]; // Array of user UUIDs
+  organization_id?: string; // ID da organização dona do dashboard
   created_at?: string;
   updated_at?: string;
 }
@@ -64,6 +65,7 @@ export const upsertDashboardSettings = async (
         dashboard_id: settings.dashboard_id,
         is_visible: settings.is_visible,
         assigned_users: settings.assigned_users,
+        organization_id: settings.organization_id, // Adicionado campo para RLS
       },
       { onConflict: "dashboard_id" } // Upsert based on dashboard_id
     )
