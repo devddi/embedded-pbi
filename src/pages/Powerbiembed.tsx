@@ -266,10 +266,10 @@ export default function PowerBIEmbedPage() {
         // Se não houver configuração ou is_visible for false, ninguém vê
         if (!reportSetting || !reportSetting.is_visible) return false;
         
-        // Se for admin_master, vê tudo que está is_visible
-        if (userRole === "admin_master") return true;
+        // Se for admin_master ou admin, vê tudo que está is_visible
+        if (userRole === "admin_master" || userRole === "admin") return true;
         
-        // Se não for admin_master, verifica se o ID do usuário está em assigned_users
+        // Se for usuário comum, verifica se o ID do usuário está em assigned_users
         // assigned_users na tabela é jsonb, o serviço o tipa como string[]
         const assignedUsers = Array.isArray(reportSetting.assigned_users) 
           ? reportSetting.assigned_users 
