@@ -48,7 +48,7 @@ interface UserProfile {
 }
 
 export function AppSidebar() {
-  const { user, signOut, userRole } = useAuth();
+  const { user, signOut, userRole, organization } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
@@ -191,13 +191,13 @@ export function AppSidebar() {
             onClick={() => navigate("/")}
           >
             <img
-              src={(import.meta.env.VITE_BRAND_LOGO_URL as string) || "https://xatiqvtpqoipofqretoe.supabase.co/storage/v1/object/public/Gerais/logo_ddi.png"}
-              alt="Hub - DDInsights"
+              src={organization?.logo_url || (import.meta.env.VITE_BRAND_LOGO_URL as string) || "https://xatiqvtpqoipofqretoe.supabase.co/storage/v1/object/public/Gerais/logo_ddi.png"}
+              alt={organization?.name || "Hub - DDInsights"}
               className="h-10 w-auto object-contain rounded-lg"
             />
             <div className="flex flex-col">
               <span className="font-bold text-sm text-gradient-cyan">
-                Hub DDInsights
+                {organization?.name || "Hub DDInsights"}
               </span>
               <span className="text-[10px] text-muted-foreground uppercase tracking-wide">
                 Business Intelligence

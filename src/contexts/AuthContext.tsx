@@ -3,6 +3,7 @@ import { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Organization } from "@/services/organizationService";
 
 interface AuthContextType {
   user: User | null;
@@ -10,6 +11,7 @@ interface AuthContextType {
   loading: boolean;
   userRole: string | null;
   isActive: boolean | null;
+  organization: Organization | null;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
 }
@@ -22,6 +24,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isActive, setIsActive] = useState<boolean | null>(null);
+  const [organization, setOrganization] = useState<Organization | null>(null);
   const navigate = useNavigate();
 
   const fetchUserAuthDetails = async (userId: string) => {
@@ -49,21 +52,64 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Fetch user active status from profiles
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
-      .select("is_active")
+      .select(`
+        is_active,
+        organization:organizations (
+          id,
+          name,
+          owner_id,
+          logo_url,
+          primary_color,
+          created_at,
+          updated_at
+        )
+      `)
       .eq("id", userId)
       .single();
 
     if (profileError) {
       console.error("Erro ao buscar status de atividade do usuário:", profileError);
       setIsActive(null);
+      setOrganization(null);
     } else if (profileData) {
       setIsActive(profileData.is_active);
+      
+      let orgData = profileData.organization as unknown as Organization;
+      
+      // Se não encontrou via profile, tenta via organization_members
+      if (!orgData) {
+        const { data: memberData, error: memberError } = await supabase
+          .from("organization_members")
+          .select(`
+            organization:organizations (
+              id,
+              name,
+              owner_id,
+              logo_url,
+              primary_color,
+              created_at,
+              updated_at
+            )
+          `)
+          .eq("user_id", userId)
+          .maybeSingle();
+          
+        if (memberData && memberData.organization) {
+          orgData = memberData.organization as unknown as Organization;
+        } else if (memberError) {
+           console.warn("Erro ao buscar organização do membro:", memberError);
+        }
+      }
+
+      setOrganization(orgData || null);
+
       if (!profileData.is_active) {
         toast.error("Sua conta está inativa. Por favor, entre em contato com o administrador.");
         await signOut(); // Força o logout se o usuário estiver inativo
       }
     } else {
       setIsActive(null);
+      setOrganization(null);
     }
   };
 
@@ -150,7 +196,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, loading, userRole, isActive, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, loading, userRole, isActive, organization, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

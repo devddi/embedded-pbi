@@ -37,6 +37,8 @@ export default function Organizations() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
   const [orgName, setOrgName] = useState("");
+  const [logoUrl, setLogoUrl] = useState("");
+  const [primaryColor, setPrimaryColor] = useState("#000000");
 
   // Delete Dialog
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -67,12 +69,16 @@ export default function Organizations() {
 
   const handleOpenCreate = () => {
     setOrgName("");
+    setLogoUrl("");
+    setPrimaryColor("#000000");
     setEditingOrg(null);
     setIsDialogOpen(true);
   };
 
   const handleOpenEdit = (org: Organization) => {
     setOrgName(org.name);
+    setLogoUrl(org.logo_url || "");
+    setPrimaryColor(org.primary_color || "#000000");
     setEditingOrg(org);
     setIsDialogOpen(true);
   };
@@ -85,7 +91,7 @@ export default function Organizations() {
 
     try {
       if (editingOrg) {
-        await organizationService.update(editingOrg.id, orgName);
+        await organizationService.update(editingOrg.id, orgName, logoUrl, primaryColor);
         toast.success("Organização atualizada com sucesso");
       } else {
         if (!user) return;
@@ -93,7 +99,7 @@ export default function Organizations() {
         // Mas a policy diz owner_id = auth.uid(). 
         // Se o admin master quiser criar para OUTRO usuário, precisaria de uma lógica diferente.
         // Por enquanto, assumimos que quem cria é o dono.
-        await organizationService.create(orgName, user.id);
+        await organizationService.create(orgName, user.id, logoUrl, primaryColor);
         toast.success("Organização criada com sucesso");
       }
       setIsDialogOpen(false);
@@ -258,6 +264,31 @@ export default function Organizations() {
                   onChange={(e) => setOrgName(e.target.value)}
                   placeholder="Ex: Minha Empresa Ltda"
                 />
+              </div>
+              <div className="grid gap-2">
+                <Label>URL da Logo</Label>
+                <Input
+                  value={logoUrl}
+                  onChange={(e) => setLogoUrl(e.target.value)}
+                  placeholder="https://exemplo.com/logo.png"
+                />
+              </div>
+              <div className="grid gap-2">
+                <Label>Cor Primária</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="color"
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    className="w-12 h-10 p-1 cursor-pointer"
+                  />
+                  <Input
+                    value={primaryColor}
+                    onChange={(e) => setPrimaryColor(e.target.value)}
+                    placeholder="#000000"
+                    className="flex-1"
+                  />
+                </div>
               </div>
             </div>
             <DialogFooter>

@@ -4,6 +4,8 @@ export interface Organization {
   id: string;
   name: string;
   owner_id: string;
+  logo_url: string | null;
+  primary_color: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -55,10 +57,10 @@ export const organizationService = {
   /**
    * Create a new organization.
    */
-  async create(name: string, ownerId: string): Promise<Organization> {
+  async create(name: string, ownerId: string, logoUrl?: string, primaryColor?: string): Promise<Organization> {
     const { data, error } = await supabase
       .from(TABLE_NAME)
-      .insert({ name, owner_id: ownerId })
+      .insert({ name, owner_id: ownerId, logo_url: logoUrl, primary_color: primaryColor })
       .select()
       .single();
 
@@ -69,10 +71,10 @@ export const organizationService = {
   /**
    * Update an organization.
    */
-  async update(id: string, name: string): Promise<Organization> {
+  async update(id: string, name: string, logoUrl?: string, primaryColor?: string): Promise<Organization> {
     const { data, error } = await supabase
       .from(TABLE_NAME)
-      .update({ name })
+      .update({ name, logo_url: logoUrl, primary_color: primaryColor })
       .eq("id", id)
       .select()
       .single();

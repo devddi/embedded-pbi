@@ -34,6 +34,8 @@ create table public.organizations (
   id uuid not null default gen_random_uuid (),
   name text not null,
   owner_id uuid not null,
+  logo_url text,
+  primary_color text default '#000000',
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now(),
   constraint organizations_pkey primary key (id),
