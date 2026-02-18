@@ -36,6 +36,8 @@ import { Badge } from "@/components/ui/badge";
 import { PageLayout } from "@/components/PageLayout";
 import { Switch } from "@/components/ui/switch";
 
+import { organizationService, Organization } from "@/services/organizationService";
+
 interface UserProfile {
   id: string;
   first_name: string | null;
@@ -44,11 +46,30 @@ interface UserProfile {
   is_active: boolean | null;
 }
 
+import { createClient } from "@supabase/supabase-js";
+
+// Temporary client creator to avoid session persistence
+const createTempClient = () => {
+  return createClient(
+    import.meta.env.VITE_SUPABASE_URL,
+    import.meta.env.VITE_SUPABASE_ANON_KEY,
+    {
+      auth: {
+        persistSession: false, // Don't save session to local storage
+        autoRefreshToken: false, // Don't try to refresh token
+        detectSessionInUrl: false, // Don't look for session in URL
+      },
+    }
+  );
+};
+
 export default function Users() {
   const { user, userRole } = useAuth();
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [users, setUsers] = useState<UserProfile[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [userOrganizations, setUserOrganizations] = useState<Organization[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
@@ -65,11 +86,75 @@ export default function Users() {
     password: "",
     phone: "",
     profileImageUrl: "",
+    organizationId: "",
   });
 
   useEffect(() => {
-    loadUsers();
-  }, []);
+    if (userRole === undefined || userRole === null) return;
+    loadData();
+  }, [userRole, user?.id]);
+  
+  const loadData = async () => {
+    setIsLoading(true);
+    try {
+      const fetchedOrgs = await organizationService.list();
+      setOrganizations(fetchedOrgs);
+
+      let usersData: UserProfile[] = [];
+      if (userRole === "admin" && user?.id) {
+        const ownedOrgs = fetchedOrgs.filter((org) => org.owner_id === user.id);
+        setUserOrganizations(ownedOrgs);
+        const ownedOrgIds = ownedOrgs.map((o) => o.id);
+        usersData = ownedOrgIds.length > 0 ? await loadUsersList(ownedOrgIds) : [];
+      } else {
+        // admin_master vê todos (ou conforme RLS permitir)
+        usersData = await loadUsersList();
+      }
+      setUsers(usersData);
+      
+    } catch (error) {
+      console.error("Error loading data:", error);
+      toast.error("Erro ao carregar dados");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  const loadUsersList = async (orgIds?: string[]) => {
+      let query = supabase
+        .from("profiles")
+        .select("id, first_name, last_name, is_active, organization_id");
+      
+      if (orgIds && orgIds.length > 0) {
+        query = query.in("organization_id", orgIds);
+      }
+      
+      const { data: profiles, error: profilesError } = await query;
+
+      if (profilesError) throw profilesError;
+
+      const { data: roles, error: rolesError } = await supabase
+      .from("user_roles")
+      .select("user_id, role");
+
+      if (rolesError) throw rolesError;
+
+      const usersWithData: UserProfile[] = (profiles ?? []).map((profile) => {
+        const userRole = roles?.find((r) => r.user_id === profile.id);
+        return {
+          id: profile.id,
+          first_name: profile.first_name ?? null,
+          last_name: profile.last_name ?? null,
+          role: userRole?.role ?? null,
+          is_active: profile.is_active ?? null,
+        };
+      });
+
+      return usersWithData.sort((a, b) => {
+        const nameA = (a.first_name || "").toLowerCase();
+        const nameB = (b.first_name || "").toLowerCase();
+        return nameA.localeCompare(nameB);
+      });
+  };
 
   const formatPhoneNumber = (value: string) => {
     // Remove todos os caracteres não numéricos
@@ -86,7 +171,7 @@ export default function Users() {
       return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 3)} ${numbers.slice(3, 7)}-${numbers.slice(7, 11)}`;
     }
   };
-
+  
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatPhoneNumber(e.target.value);
     setFormData({ ...formData, phone: formatted });
@@ -199,14 +284,15 @@ export default function Users() {
       password: "",
       phone: "",
       profileImageUrl: "",
+      organizationId: "",
     });
     setPreviewImage(null);
     setIsCreateUserDialogOpen(true);
   };
 
   const handleCreateUser = async () => {
-    if (userRole !== "admin_master") {
-      toast.error("Apenas administradores mestre podem criar usuários");
+    if (userRole !== "admin_master" && userRole !== "admin") {
+      toast.error("Você não tem permissão para criar usuários");
       return;
     }
 
@@ -215,11 +301,25 @@ export default function Users() {
       return;
     }
 
+    if (formData.role === "user" && !formData.organizationId) {
+      toast.error("Por favor, selecione uma organização.");
+      return;
+    }
+
     try {
-      // 1. Criar usuário no Auth do Supabase
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      // 1. Criar usuário no Auth do Supabase usando cliente temporário
+      // Isso evita que o admin seja deslogado
+      const tempSupabase = createTempClient();
+      
+      const { data: authData, error: authError } = await tempSupabase.auth.signUp({
         email: formData.email,
         password: formData.password,
+        options: {
+          data: {
+            first_name: formData.firstName,
+            last_name: formData.lastName,
+          }
+        }
       });
 
       if (authError) throw authError;
@@ -227,7 +327,8 @@ export default function Users() {
 
       const newUserId = authData.user.id;
 
-      // 2. Inserir perfil em profiles
+      // 2. Inserir perfil em profiles (usando o cliente principal autenticado como admin)
+      // O RLS deve permitir que o admin insira perfis
       const { error: profileError } = await supabase
         .from("profiles")
         .insert({
@@ -235,9 +336,24 @@ export default function Users() {
           first_name: formData.firstName,
           last_name: formData.lastName,
           is_active: formData.is_active,
+          organization_id: formData.role === "user" ? formData.organizationId : null,
         });
 
-      if (profileError) throw profileError;
+      if (profileError) {
+          // Se falhar o insert no profile, talvez o signUp já tenha inserido via trigger?
+          // Se não, vamos tentar upsert ou ignorar se já existe
+          console.warn("Erro ao inserir perfil, tentando upsert...", profileError);
+          const { error: upsertError } = await supabase
+            .from("profiles")
+            .upsert({
+                id: newUserId,
+                first_name: formData.firstName,
+                last_name: formData.lastName,
+                is_active: formData.is_active,
+                organization_id: formData.role === "user" ? formData.organizationId : null,
+            });
+            if (upsertError) throw upsertError;
+      }
 
       // 3. Inserir role em user_roles
       const { error: roleError } = await supabase
@@ -248,10 +364,15 @@ export default function Users() {
         });
 
       if (roleError) throw roleError;
+      
+      // 4. Se for admin ou se uma organização foi selecionada, adicionar membro
+      if (formData.role === "user" && formData.organizationId) {
+        await organizationService.addMember(formData.organizationId, newUserId, "member");
+      }
 
       toast.success("Usuário criado com sucesso!");
       setIsCreateUserDialogOpen(false);
-      loadUsers(); // Recarrega a lista de usuários
+      loadData(); // Recarrega a lista de usuários
     } catch (error: any) {
       console.error("Erro ao criar usuário:", error);
       toast.error(`Erro ao criar usuário: ${error.message || "Erro desconhecido"}`);
@@ -309,7 +430,7 @@ export default function Users() {
       setOpen(false);
       setSelectedUserId(null);
       setPreviewImage(null);
-      loadUsers();
+      loadData();
     } catch (error) {
       console.error("Error updating profile:", error);
       toast.error("Erro ao atualizar perfil");
@@ -372,7 +493,7 @@ export default function Users() {
               Visualize e gerencie os usuários do sistema
             </p>
           </div>
-          {userRole === "admin_master" && (
+          {(userRole === "admin_master" || userRole === "admin") && (
             <Button onClick={() => handleCreateUserClick()} className="w-fit">
               <UserIcon className="w-4 h-4 mr-2" />
               Criar Usuário
@@ -506,12 +627,17 @@ export default function Users() {
                   }
                 />
               </div>
+              {userRole === "admin_master" ? (
               <div className="grid gap-2">
                 <Label htmlFor="role">Tipo de Acesso</Label>
                 <Select
                   value={formData.role}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, role: value })
+                    setFormData({
+                      ...formData,
+                      role: value,
+                      organizationId: value === "user" ? formData.organizationId : "",
+                    })
                   }
                 >
                   <SelectTrigger>
@@ -520,12 +646,11 @@ export default function Users() {
                   <SelectContent>
                     <SelectItem value="user">Usuário</SelectItem>
                     <SelectItem value="admin">Admin</SelectItem>
-                    {userRole === "admin_master" && (
-                      <SelectItem value="admin_master">Admin Master</SelectItem>
-                    )}
+                    <SelectItem value="admin_master">Admin Master</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
+              ) : null}
               {userRole === "admin_master" && (
                 <div className="flex items-center justify-between">
                   <Label htmlFor="is_active">Usuário Ativo</Label>
@@ -623,6 +748,29 @@ export default function Users() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {formData.role === "user" && (
+                <div className="grid gap-2">
+                  <Label htmlFor="organization">Organização</Label>
+                  <Select
+                    value={formData.organizationId}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, organizationId: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione uma organização" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(userRole === "admin" ? userOrganizations : organizations).map((org) => (
+                        <SelectItem key={org.id} value={org.id}>
+                          {org.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               {userRole === "admin_master" && (
                 <div className="flex items-center justify-between">
                   <Label htmlFor="is_active_create">Usuário Ativo</Label>

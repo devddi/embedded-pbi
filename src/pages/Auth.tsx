@@ -27,8 +27,8 @@ export default function Auth() {
 
   // Redirect if already authenticated
   useEffect(() => {
+    // Only redirect if user is fully authenticated AND role is loaded
     if (user && userRole) {
-      // Agora todos vão para o destino pretendido (que por padrão é "/")
       navigate(from, { replace: true });
     }
   }, [user, userRole, navigate, from]);

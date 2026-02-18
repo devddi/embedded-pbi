@@ -13,6 +13,8 @@ import { getAllDashboardSettings, upsertDashboardSettings, DashboardSettings } f
 import { toast } from "sonner"; // New import
 import { powerbiClientsService, PowerBIClient } from "@/services/powerbiClientsService";
 
+import { organizationService } from "@/services/organizationService";
+
 export default function DashboardManagement() {
   const [reports, setReports] = useState<Report[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -21,9 +23,10 @@ export default function DashboardManagement() {
   const [selectedWorkspaceId, setSelectedWorkspaceId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [users, setUsers] = useState<UserProfile[]>([]); // New state
-  const [dashboardSettings, setDashboardSettings] = useState<Record<string, DashboardSettings>>({}); // New state
-  const [savingSettings, setSavingSettings] = useState<Record<string, boolean>>({}); // New state for saving status
+  const [allUsers, setAllUsers] = useState<UserProfile[]>([]); // Renamed from users
+  const [filteredUsers, setFilteredUsers] = useState<UserProfile[]>([]); // New state for dropdown
+  const [dashboardSettings, setDashboardSettings] = useState<Record<string, DashboardSettings>>({}); 
+  const [savingSettings, setSavingSettings] = useState<Record<string, boolean>>({}); 
   const [page, setPage] = useState(1);
   const pageSize = 9;
 
@@ -38,7 +41,8 @@ export default function DashboardManagement() {
         ]);
 
         setClients(fetchedClients);
-        setUsers(fetchedUsers);
+        setAllUsers(fetchedUsers);
+        setFilteredUsers(fetchedUsers); // Default to all
 
         if (fetchedClients.length === 0) {
           setReports([]);
@@ -47,31 +51,8 @@ export default function DashboardManagement() {
         }
 
         const firstClientId = fetchedClients[0].id as string;
-        setSelectedClientId(firstClientId);
-
-        const [clientWorkspaces, fetchedReports, fetchedSettings] = await Promise.all([
-          getWorkspaces(firstClientId),
-          getAllReports(firstClientId),
-          getAllDashboardSettings(),
-        ]);
-
-        setWorkspaces(clientWorkspaces);
-        setReports(fetchedReports);
-        setPage(1);
-
-        const firstWorkspaceId = clientWorkspaces[0]?.id ?? null;
-        setSelectedWorkspaceId(firstWorkspaceId);
-
-        const initialSettings: Record<string, DashboardSettings> = {};
-        fetchedReports.forEach(report => {
-          const existingSetting = fetchedSettings.find(s => s.dashboard_id === report.id);
-          initialSettings[report.id] = existingSetting || {
-            dashboard_id: report.id,
-            is_visible: true, // Default to visible
-            assigned_users: [],
-          };
-        });
-        setDashboardSettings(initialSettings);
+        // Logic to select first client and filter users
+        await handleClientSelect(firstClientId, fetchedClients, fetchedUsers);
 
       } catch (e: unknown) {
         console.error("Erro ao carregar dados:", e);
@@ -86,7 +67,64 @@ export default function DashboardManagement() {
     fetchData();
   }, []);
 
-  const userOptions: OptionType[] = users.map(user => ({
+  const handleClientSelect = async (clientId: string, currentClients = clients, currentUsers = allUsers) => {
+      setSelectedClientId(clientId);
+      setSelectedWorkspaceId(null);
+      setPage(1);
+      
+      // Filter users based on client's organization
+      const client = currentClients.find(c => c.id === clientId);
+      if (client?.organization_id) {
+          try {
+              const members = await organizationService.listMembers(client.organization_id);
+              const memberIds = new Set(members.map(m => m.user_id));
+              const filtered = currentUsers.filter(u => memberIds.has(u.id));
+              setFilteredUsers(filtered);
+          } catch (e) {
+              console.error("Error fetching org members", e);
+              // Fallback to all users or empty?
+              setFilteredUsers(currentUsers); 
+          }
+      } else {
+          setFilteredUsers(currentUsers);
+      }
+
+      setLoading(true);
+      setError(null);
+      try {
+        const [clientWorkspaces, clientReports, fetchedSettings] = await Promise.all([
+          getWorkspaces(clientId),
+          getAllReports(clientId),
+          getAllDashboardSettings(),
+        ]);
+
+        setWorkspaces(clientWorkspaces);
+        setReports(clientReports);
+
+        const firstWorkspaceId = clientWorkspaces[0]?.id ?? null;
+        setSelectedWorkspaceId(firstWorkspaceId);
+
+        const clientSettings: Record<string, DashboardSettings> = {};
+        clientReports.forEach(report => {
+          const existingSetting = fetchedSettings.find(s => s.dashboard_id === report.id);
+          clientSettings[report.id] = existingSetting || {
+            dashboard_id: report.id,
+            is_visible: true,
+            assigned_users: [],
+          };
+        });
+        setDashboardSettings(clientSettings);
+      } catch (e: unknown) {
+        console.error("Erro ao carregar dados do cliente:", e);
+        const errorMessage = e instanceof Error ? e.message : String(e);
+        setError(`Erro ao carregar dados do cliente: ${errorMessage}`);
+        toast.error(`Erro ao carregar dados do cliente: ${errorMessage}`);
+      } finally {
+        setLoading(false);
+      }
+  };
+
+  const userOptions: OptionType[] = filteredUsers.map(user => ({
     label: `${user.first_name} ${user.last_name}`,
     value: user.id,
   }));
@@ -157,45 +195,7 @@ export default function DashboardManagement() {
                   {clients.map((client) => (
                     <button
                       key={client.id}
-                      onClick={async () => {
-                        if (!client.id) return;
-                        setSelectedClientId(client.id);
-                        setSelectedWorkspaceId(null);
-                        setPage(1);
-                        setLoading(true);
-                        setError(null);
-                        try {
-                          const [clientWorkspaces, clientReports, fetchedSettings] = await Promise.all([
-                            getWorkspaces(client.id),
-                            getAllReports(client.id),
-                            getAllDashboardSettings(),
-                          ]);
-
-                          setWorkspaces(clientWorkspaces);
-                          setReports(clientReports);
-
-                          const firstWorkspaceId = clientWorkspaces[0]?.id ?? null;
-                          setSelectedWorkspaceId(firstWorkspaceId);
-
-                          const clientSettings: Record<string, DashboardSettings> = {};
-                          clientReports.forEach(report => {
-                            const existingSetting = fetchedSettings.find(s => s.dashboard_id === report.id);
-                            clientSettings[report.id] = existingSetting || {
-                              dashboard_id: report.id,
-                              is_visible: true,
-                              assigned_users: [],
-                            };
-                          });
-                          setDashboardSettings(clientSettings);
-                        } catch (e: unknown) {
-                          console.error("Erro ao carregar dados do cliente:", e);
-                          const errorMessage = e instanceof Error ? e.message : String(e);
-                          setError(`Erro ao carregar dados do cliente: ${errorMessage}`);
-                          toast.error(`Erro ao carregar dados do cliente: ${errorMessage}`);
-                        } finally {
-                          setLoading(false);
-                        }
-                      }}
+                      onClick={() => handleClientSelect(client.id!)}
                       className={`w-full flex items-center justify-between px-3 py-2 rounded-md border text-sm transition-colors ${
                         selectedClientId === client.id
                           ? "border-primary bg-primary/5 text-primary"

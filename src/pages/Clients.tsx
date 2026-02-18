@@ -22,15 +22,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Plus, Edit2, Trash2, Building2, ArrowLeft } from "lucide-react";
 import { powerbiClientsService, PowerBIClient } from "@/services/powerbiClientsService";
+import { organizationService, Organization } from "@/services/organizationService";
 
 export default function Clients() {
   const { userRole } = useAuth();
   const navigate = useNavigate();
 
   const [clients, setClients] = useState<PowerBIClient[]>([]);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingClient, setEditingClient] = useState<PowerBIClient | null>(null);
@@ -44,20 +53,25 @@ export default function Clients() {
     client_secret: "",
     email: "",
     password: "",
+    organization_id: "",
   });
 
   useEffect(() => {
-    loadClients();
+    loadData();
   }, []);
 
-  const loadClients = async () => {
+  const loadData = async () => {
     try {
       setLoading(true);
-      const data = await powerbiClientsService.list();
-      setClients(data);
+      const [clientsData, orgsData] = await Promise.all([
+        powerbiClientsService.list(),
+        organizationService.list()
+      ]);
+      setClients(clientsData);
+      setOrganizations(orgsData);
     } catch (error) {
-      console.error("Erro ao carregar clientes Power BI:", error);
-      toast.error("Erro ao carregar clientes Power BI");
+      console.error("Erro ao carregar dados:", error);
+      toast.error("Erro ao carregar dados");
     } finally {
       setLoading(false);
     }
@@ -71,12 +85,17 @@ export default function Clients() {
       client_secret: "",
       email: "",
       password: "",
+      organization_id: "",
     });
     setEditingClient(null);
   };
 
   const handleOpenCreate = () => {
     resetForm();
+    // Pre-select org if only one available (for Admin)
+    if (userRole === 'admin' && organizations.length === 1) {
+        setFormData(prev => ({ ...prev, organization_id: organizations[0].id }));
+    }
     setIsDialogOpen(true);
   };
 
@@ -89,6 +108,7 @@ export default function Clients() {
       client_secret: client.client_secret,
       email: client.email,
       password: client.password,
+      organization_id: client.organization_id || "",
     });
     setIsDialogOpen(true);
   };
@@ -97,6 +117,11 @@ export default function Clients() {
     if (!formData.name || !formData.client_id || !formData.tenant_id || !formData.client_secret || !formData.email || !formData.password) {
       toast.error("Preencha todos os campos obrigatórios");
       return;
+    }
+
+    if (!formData.organization_id) {
+        toast.error("Selecione uma organização");
+        return;
     }
 
     try {
@@ -109,7 +134,7 @@ export default function Clients() {
       }
       setIsDialogOpen(false);
       resetForm();
-      loadClients();
+      loadData();
     } catch (error) {
       console.error("Erro ao salvar cliente:", error);
       toast.error("Erro ao salvar cliente");
@@ -124,11 +149,16 @@ export default function Clients() {
       toast.success("Cliente removido com sucesso");
       setIsDeleteDialogOpen(false);
       setClientToDelete(null);
-      loadClients();
+      loadData();
     } catch (error) {
       console.error("Erro ao remover cliente:", error);
       toast.error("Erro ao remover cliente");
     }
+  };
+
+  const getOrgName = (orgId?: string | null) => {
+    if (!orgId) return "-";
+    return organizations.find(o => o.id === orgId)?.name || "Desconhecida";
   };
 
   return (
@@ -146,7 +176,7 @@ export default function Clients() {
               Cadastre clientes e suas credenciais para buscar dashboards do Power BI.
             </p>
           </div>
-          {userRole === "admin_master" && (
+          {(userRole === "admin_master" || userRole === "admin") && (
             <Button onClick={handleOpenCreate} className="flex items-center gap-2 w-fit">
               <Plus className="w-4 h-4" />
               Novo Cliente
@@ -176,16 +206,18 @@ export default function Clients() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Nome</TableHead>
+                      <TableHead>Organização</TableHead>
                       <TableHead>Client ID</TableHead>
                       <TableHead>Tenant ID</TableHead>
                       <TableHead>Email</TableHead>
-                      {userRole === "admin_master" && <TableHead className="w-[120px]">Ações</TableHead>}
+                      <TableHead className="w-[120px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {clients.map((client) => (
                       <TableRow key={client.id}>
                         <TableCell>{client.name}</TableCell>
+                        <TableCell>{getOrgName(client.organization_id)}</TableCell>
                         <TableCell className="font-mono text-xs truncate max-w-[180px]">
                           {client.client_id}
                         </TableCell>
@@ -193,8 +225,7 @@ export default function Clients() {
                           {client.tenant_id}
                         </TableCell>
                         <TableCell>{client.email}</TableCell>
-                        {userRole === "admin_master" && (
-                          <TableCell>
+                        <TableCell>
                             <div className="flex gap-2">
                               <Button
                                 variant="outline"
@@ -214,8 +245,7 @@ export default function Clients() {
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </div>
-                          </TableCell>
-                        )}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -236,6 +266,26 @@ export default function Clients() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-4 py-4">
+              <div className="grid gap-2">
+                <Label>Organização</Label>
+                <Select
+                  value={formData.organization_id}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, organization_id: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a organização" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {organizations.map((org) => (
+                      <SelectItem key={org.id} value={org.id}>
+                        {org.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid gap-2">
                 <Label>Nome do Cliente</Label>
                 <Input

@@ -8,6 +8,7 @@ export interface PowerBIClient {
   client_secret: string;
   email: string;
   password: string;
+  organization_id?: string | null;
   created_at?: string;
   updated_at?: string;
 }
@@ -15,11 +16,17 @@ export interface PowerBIClient {
 const TABLE_NAME = "powerbi_clients";
 
 export const powerbiClientsService = {
-  async list(): Promise<PowerBIClient[]> {
-    const { data, error } = await supabase
+  async list(organizationId?: string): Promise<PowerBIClient[]> {
+    let query = supabase
       .from(TABLE_NAME)
       .select("*")
       .order("created_at", { ascending: true });
+
+    if (organizationId) {
+      query = query.eq("organization_id", organizationId);
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
     return data as PowerBIClient[];
@@ -57,4 +64,3 @@ export const powerbiClientsService = {
     if (error) throw error;
   },
 };
-

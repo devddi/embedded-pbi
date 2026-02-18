@@ -12,6 +12,7 @@ import {
   User,
   Lock,
   Shield,
+  Mail,
   ChevronRight,
 } from "lucide-react";
 import {
@@ -37,14 +38,21 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ChangePasswordModal } from "@/components/ChangePasswordModal";
+import { supabase } from "@/integrations/supabase/client";
+
+interface UserProfile {
+  first_name: string | null;
+  last_name: string | null;
+}
 
 export function AppSidebar() {
   const { user, signOut, userRole } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [isChangePasswordModalOpen, setIsChangePasswordModalOpen] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
 
   const isAdminMaster = userRole === "admin_master";
   const isAdmin = userRole === "admin";
@@ -76,7 +84,7 @@ export function AppSidebar() {
       title: "Gerenciar Dashboards",
       icon: LayoutDashboard,
       path: "/dashboard-management",
-      roles: ["admin_master"],
+      roles: ["admin_master", "admin"],
     },
     {
       title: "Gestão TV",
@@ -85,16 +93,22 @@ export function AppSidebar() {
       roles: ["admin_master"],
     },
     {
-      title: "Usuários",
-      icon: Users,
-      path: "/users",
-      roles: ["admin_master"],
+      title: "Minhas Organizações",
+      icon: Building2,
+      path: "/organizations",
+      roles: ["admin_master", "admin"],
     },
     {
       title: "Clientes Power BI",
-      icon: Building2,
+      icon: Settings,
       path: "/clients",
-      roles: ["admin_master"],
+      roles: ["admin_master", "admin"],
+    },
+    {
+      title: "Usuários",
+      icon: Users,
+      path: "/users",
+      roles: ["admin_master", "admin"],
     },
   ];
 
@@ -106,11 +120,41 @@ export function AppSidebar() {
     item.roles.includes(userRole || "")
   );
 
+  const loadUserProfile = useCallback(async () => {
+    if (!user) return;
+
+    try {
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("first_name, last_name")
+        .eq("id", user.id)
+        .single();
+
+      if (error) throw error;
+      setUserProfile(data);
+    } catch (error) {
+      console.error("Error loading user profile:", error);
+    }
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      loadUserProfile();
+    }
+  }, [user, loadUserProfile]);
+
   const getInitials = () => {
     if (user?.email) {
       return user.email.substring(0, 2).toUpperCase();
     }
     return "U";
+  };
+
+  const getDisplayName = () => {
+    if (userProfile?.first_name || userProfile?.last_name) {
+      return `${userProfile.first_name || ""} ${userProfile.last_name || ""}`.trim();
+    }
+    return user?.email || "Usuário";
   };
 
   const getRoleBadge = () => {
@@ -223,7 +267,7 @@ export function AppSidebar() {
                   </AvatarFallback>
                 </Avatar>
                 <div className="flex-1 text-left overflow-hidden">
-                  <p className="text-sm font-medium truncate">{user?.email}</p>
+                  <p className="text-sm font-medium truncate">{getDisplayName()}</p>
                   <div className="mt-0.5">{getRoleBadge()}</div>
                 </div>
                 <ChevronRight className="w-4 h-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
@@ -231,11 +275,16 @@ export function AppSidebar() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56 glass-card border-primary/30">
               <DropdownMenuLabel className="font-normal">
-                <div className="flex flex-col space-y-1">
+                <div className="flex flex-col space-y-2">
                   <p className="text-sm font-medium">Minha Conta</p>
-                  <p className="text-xs text-muted-foreground truncate">
-                    {user?.email}
-                  </p>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <User className="w-3.5 h-3.5" />
+                    <span className="truncate">{getDisplayName()}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <Mail className="w-3.5 h-3.5" />
+                    <span className="truncate">{user?.email}</span>
+                  </div>
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />

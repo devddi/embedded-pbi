@@ -42,6 +42,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       );
       setUserRole(sortedRoles[0].role);
     } else {
+      console.warn("Usuário sem roles definidas:", userId);
       setUserRole(null);
     }
 

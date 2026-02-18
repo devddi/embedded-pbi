@@ -19,6 +19,7 @@ import TVPresentations from "./pages/TVPresentations";
 import TVPresentationViewer from "./pages/TVPresentationViewer";
 import TVPublished from "./pages/TVPublished";
 import Clients from "./pages/Clients";
+import Organizations from "./pages/Organizations";
 
 const queryClient = new QueryClient();
 
@@ -61,7 +62,7 @@ const AppLayout = () => {
             <Route
               path="/dashboard-management"
               element={
-                <ProtectedRoute allowedRoles={["admin_master"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
                   <DashboardManagement />
                 </ProtectedRoute>
               }
@@ -69,15 +70,23 @@ const AppLayout = () => {
             <Route
               path="/clients"
               element={
-                <ProtectedRoute allowedRoles={["admin_master"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
                   <Clients />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/organizations"
+              element={
+                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
+                  <Organizations />
                 </ProtectedRoute>
               }
             />
             <Route
               path="/users"
               element={
-                <ProtectedRoute allowedRoles={["admin_master"]}>
+                <ProtectedRoute allowedRoles={["admin_master", "admin"]}>
                   <Users />
                 </ProtectedRoute>
               }

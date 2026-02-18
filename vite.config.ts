@@ -4,7 +4,9 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
-const pwaIconSrc = process.env.VITE_PWA_ICON_URL || "/icons/app-icon.png";
+const pwaIconSrc =
+  process.env.VITE_PWA_ICON_URL ||
+  "https://xatiqvtpqoipofqretoe.supabase.co/storage/v1/object/public/Gerais/logo_ddi.png";
 
 export default defineConfig(({ mode }) => ({
   server: {
@@ -25,12 +27,12 @@ export default defineConfig(({ mode }) => ({
       injectRegister: "auto",
       includeAssets: ["favicon.ico", "robots.txt", "icons/app-icon.png"],
       manifest: {
-        name: "Hub - Eurostock",
-        short_name: "Hub Eurostock",
+        name: "Hub - DDInsights",
+        short_name: "Hub DDInsights",
         start_url: "/",
         display: "standalone",
-        background_color: "#ffffff",
-        theme_color: "#FAC017",
+        background_color: "#0a465f",
+        theme_color: "#189AB4",
         orientation: "portrait",
         icons: [
           {
