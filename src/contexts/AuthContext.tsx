@@ -54,7 +54,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       .from("profiles")
       .select(`
         is_active,
-        organization:organizations (
+        organization:organizations!profiles_organization_id_fkey (
           id,
           name,
           owner_id,
