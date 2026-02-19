@@ -22,6 +22,8 @@ import {
 
 import { organizationService } from "@/services/organizationService"; // Import organization service
 
+import { toast } from "sonner"; // New import
+
 export default function PowerBIEmbedPage() {
   const { user, userRole } = useAuth();
   // Estados de navegação
@@ -366,6 +368,86 @@ export default function PowerBIEmbedPage() {
     }
     setIsFullscreen(!isFullscreen);
   };
+
+  // Monitorar mudanças de página para garantir que o usuário não acesse páginas proibidas
+  useEffect(() => {
+    // Se não tiver restrições, não precisa monitorar
+    if (!allowedPageNames || allowedPageNames.length === 0) return;
+
+    // Função para checar a página atual e reverter se necessário
+    const checkPageAccess = async () => {
+      if (!reportRef.current) return;
+
+      try {
+        // @ts-ignore
+        const activePage = await reportRef.current.getActivePage();
+        
+        if (activePage && !allowedPageNames.includes(activePage.name)) {
+          console.warn(`Acesso negado à página ${activePage.displayName} (${activePage.name}). Revertendo...`);
+          
+          // Tenta voltar para a página ativa permitida (estado) ou a primeira permitida
+          const targetPageName = activePageName || allowedPageNames[0];
+          
+          if (targetPageName) {
+            // @ts-ignore
+            await reportRef.current.setPage(targetPageName);
+            setActivePageName(targetPageName); // Sincroniza estado
+          }
+        } else if (activePage) {
+          // Se a página é permitida, atualiza o estado para refletir a navegação
+          setActivePageName(activePage.name);
+        }
+      } catch (e) {
+        console.error("Erro ao verificar acesso à página:", e);
+      }
+    };
+
+    // Configurar o listener de evento
+    // Nota: O PowerBIEmbed component tem uma prop eventHandlers, mas para usar closures atualizados (como allowedPageNames),
+    // é mais seguro adicionar o listener diretamente na instância do report quando ela muda ou quando as permissões mudam.
+    // Mas como reportRef.current é estável, podemos usar um useEffect.
+    
+    // Infelizmente a prop eventHandlers do componente PowerBIEmbed só é lida na montagem.
+    // Vamos adicionar o listener manualmente.
+    
+    const report = reportRef.current;
+    if (report && allowedPageNames && allowedPageNames.length > 0) {
+      // @ts-ignore
+      report.off("pageChanged"); // Remove listeners antigos para evitar duplicidade
+      // @ts-ignore
+      report.on("pageChanged", (event) => {
+        // O evento traz a nova página em event.detail.newPage
+        const newPage = event.detail.newPage;
+        console.log("Mudança de página detectada:", newPage.displayName);
+        
+        if (!allowedPageNames.includes(newPage.name)) {
+          console.warn(`Bloqueando navegação para página não autorizada: ${newPage.displayName}`);
+           // Reverte para a página anterior permitida (que deve ser a activePageName atual antes da mudança, ou a primeira permitida)
+           const targetPageName = activePageName && allowedPageNames.includes(activePageName) 
+             ? activePageName 
+             : allowedPageNames[0];
+             
+           // Exibe toast de aviso
+           toast.error("Você não tem permissão para acessar esta página.");
+           
+           setTimeout(() => {
+             // @ts-ignore
+             report.setPage(targetPageName).catch(e => console.error("Erro ao reverter página:", e));
+           }, 100); // Pequeno delay para garantir que o PowerBI processe a reversão
+        } else {
+          // Navegação permitida, atualiza estado
+          setActivePageName(newPage.name);
+        }
+      });
+    }
+
+    return () => {
+      if (report) {
+        // @ts-ignore
+        report.off("pageChanged");
+      }
+    };
+  }, [allowedPageNames, activePageName, reportRef.current]); // Dependências cruciais
 
   const visiblePages = reportPages.filter(page => 
     !allowedPageNames || allowedPageNames.includes(page.name)
