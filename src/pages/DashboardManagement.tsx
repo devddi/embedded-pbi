@@ -3,7 +3,7 @@ import { PageLayout } from "@/components/PageLayout";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, AlertCircle, FileBarChart, Building2, LayoutDashboard } from "lucide-react";
+import { Loader2, AlertCircle, FileBarChart, Building2, LayoutDashboard, Search, Filter, ShieldCheck, Eye } from "lucide-react";
 import { getAllReports, getWorkspaces, Report, Workspace } from "@/services/powerBiApiService";
 import { Switch } from "@/components/ui/switch"; // New import
 import { Label } from "@/components/ui/label"; // New import
@@ -41,6 +41,9 @@ export default function DashboardManagement() {
   const [page, setPage] = useState(1);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [selectedReportForPermissions, setSelectedReportForPermissions] = useState<Report | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [filterActive, setFilterActive] = useState(false);
+  const [filterRLS, setFilterRLS] = useState(false);
   const pageSize = 9;
 
   useEffect(() => {
@@ -203,10 +206,28 @@ export default function DashboardManagement() {
     }
   };
 
-  const filteredReports =
-    selectedWorkspaceId != null
-      ? reports.filter(report => report.workspaceId === selectedWorkspaceId)
-      : reports;
+  const filteredReports = reports
+    .filter(report => selectedWorkspaceId ? report.workspaceId === selectedWorkspaceId : true)
+    .filter(report => {
+      // 1. Filtro de Texto (Nome do Dash)
+      if (searchTerm && !report.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+        return false;
+      }
+      
+      const settings = dashboardSettings[report.id];
+      
+      // 2. Filtro "Ativos" (is_visible)
+      if (filterActive && !settings?.is_visible) {
+        return false;
+      }
+
+      // 3. Filtro "RLS Configurado"
+      if (filterRLS && !settings?.enable_rls) {
+        return false;
+      }
+
+      return true;
+    });
 
   return (
     <PageLayout>
@@ -214,6 +235,44 @@ export default function DashboardManagement() {
         <div className="mb-6 animate-fade-in">
           <h1 className="text-3xl md:text-4xl font-bold mb-2">Gerenciar Dashboards</h1>
           <p className="text-muted-foreground">Configuração de Dashboards Power BI por Cliente</p>
+        </div>
+
+        {/* Filtros */}
+        <div className="bg-muted/30 p-4 rounded-lg border mb-8 flex flex-col md:flex-row gap-4 items-center justify-between">
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <Input
+              type="search"
+              placeholder="Buscar dashboard por nome..."
+              className="pl-9 bg-background"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            <div className="flex items-center space-x-2 bg-background border rounded-md px-3 py-2">
+              <Eye className={`h-4 w-4 ${filterActive ? "text-primary" : "text-muted-foreground"}`} />
+              <Label htmlFor="filter-active" className="cursor-pointer text-sm font-medium">Ativos</Label>
+              <Switch 
+                id="filter-active" 
+                checked={filterActive}
+                onCheckedChange={setFilterActive}
+                className="scale-75"
+              />
+            </div>
+            
+            <div className="flex items-center space-x-2 bg-background border rounded-md px-3 py-2">
+              <ShieldCheck className={`h-4 w-4 ${filterRLS ? "text-primary" : "text-muted-foreground"}`} />
+              <Label htmlFor="filter-rls" className="cursor-pointer text-sm font-medium">Com RLS</Label>
+              <Switch 
+                id="filter-rls" 
+                checked={filterRLS}
+                onCheckedChange={setFilterRLS}
+                className="scale-75"
+              />
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-[280px,1fr] gap-6 mb-8">

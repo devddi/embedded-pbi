@@ -9,6 +9,7 @@ import { Loader2, AlertCircle, LayoutDashboard, FileBarChart, ArrowLeft, Maximiz
 import { PowerBIEmbed } from "powerbi-client-react";
 import { models } from "powerbi-client";
 import { getAllDashboardSettings, DashboardSettings } from "@/services/dashboardSettingsService";
+import { getUserDashboardSettings } from "@/services/dashboardUserSettingsService";
 import { getWorkspaces, getReportsInWorkspace, getEmbedToken, getReportPages, Workspace, Report, ReportPage } from "@/services/powerBiApiService";
 import { powerbiClientsService, PowerBIClient } from "@/services/powerbiClientsService"; // Import service
 import { getUserAllowedPages } from "@/services/dashboardPagePermissionsService";
@@ -73,15 +74,26 @@ export default function PowerBIEmbedPage() {
       // 1. Obter Token de Embed
       // Verificar se RLS está habilitado para este report
       const reportSettings = allSettings.find(s => s.dashboard_id === report.id);
-      const identity = (reportSettings?.enable_rls && user && user.email) ? {
-        username: user.email,
-        roles: [reportSettings.rls_role || "User"],
-        datasets: report.datasetId ? [report.datasetId] : []
-      } : undefined;
+      
+      let identity = undefined;
+
+      if (reportSettings?.enable_rls && user && user.email) {
+        // 1. Tenta buscar configuração específica do usuário
+        const userSetting = await getUserDashboardSettings(report.id, user.id);
+        
+        // 2. Define a role: usa a específica do usuário OU a padrão do dashboard OU "User"
+        const roleToUse = userSetting?.rls_role || reportSettings.rls_role || "User";
+
+        identity = {
+          username: user.email,
+          roles: [roleToUse],
+          datasets: report.datasetId ? [report.datasetId] : []
+        };
+      }
 
       // Se RLS estiver ativo mas não tivermos datasetId, pode falhar. 
       // O datasetId deve vir no objeto Report. Se não vier, vamos tentar sem, mas logar aviso.
-      if (identity && identity.datasets.length === 0) {
+      if (identity && (!identity.datasets || identity.datasets.length === 0)) {
          console.warn("RLS habilitado mas datasetId não encontrado no relatório. Token pode falhar ou não aplicar RLS.");
       }
 
