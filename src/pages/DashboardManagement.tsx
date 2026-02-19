@@ -12,6 +12,7 @@ import { getAllUsers, UserProfile } from "@/services/userService"; // New import
 import { getAllDashboardSettings, upsertDashboardSettings, DashboardSettings } from "@/services/dashboardSettingsService"; // New import
 import { toast } from "sonner"; // New import
 import { powerbiClientsService, PowerBIClient } from "@/services/powerbiClientsService";
+import { DashboardPagePermissionsDialog } from "@/components/DashboardPagePermissionsDialog";
 
 import { organizationService, Organization } from "@/services/organizationService";
 
@@ -37,6 +38,7 @@ export default function DashboardManagement() {
   const [savingSettings, setSavingSettings] = useState<Record<string, boolean>>({}); 
   const [page, setPage] = useState(1);
   const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [selectedReportForPermissions, setSelectedReportForPermissions] = useState<Report | null>(null);
   const pageSize = 9;
 
   useEffect(() => {
@@ -381,6 +383,19 @@ export default function DashboardManagement() {
                         disabled={isSaving}
                       />
                     </div>
+                    
+                    <div>
+                      <Label className="mb-2 block">Controle de Abas</Label>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        className="w-full"
+                        onClick={() => setSelectedReportForPermissions(report)}
+                      >
+                        Gerenciar Permissões de Abas
+                      </Button>
+                    </div>
+
                     <div>
                       <Label htmlFor={`org-${report.id}`} className="mb-2 block">
                         Organização
@@ -425,6 +440,16 @@ export default function DashboardManagement() {
           </>
         )}
       </div>
+      
+      {selectedReportForPermissions && (
+        <DashboardPagePermissionsDialog
+          isOpen={!!selectedReportForPermissions}
+          onClose={() => setSelectedReportForPermissions(null)}
+          report={selectedReportForPermissions}
+          clientId={selectedClientId || undefined}
+          users={filteredUsers}
+        />
+      )}
     </PageLayout>
   );
 }

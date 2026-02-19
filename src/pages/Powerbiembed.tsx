@@ -9,8 +9,9 @@ import { Loader2, AlertCircle, LayoutDashboard, FileBarChart, ArrowLeft, Maximiz
 import { PowerBIEmbed } from "powerbi-client-react";
 import { models } from "powerbi-client";
 import { getAllDashboardSettings } from "@/services/dashboardSettingsService";
-import { getWorkspaces, getReportsInWorkspace, getEmbedToken, Workspace, Report } from "@/services/powerBiApiService";
+import { getWorkspaces, getReportsInWorkspace, getEmbedToken, getReportPages, Workspace, Report, ReportPage } from "@/services/powerBiApiService";
 import { powerbiClientsService, PowerBIClient } from "@/services/powerbiClientsService"; // Import service
+import { getUserAllowedPages } from "@/services/dashboardPagePermissionsService";
 import {
   Select,
   SelectContent,
@@ -49,6 +50,11 @@ export default function PowerBIEmbedPage() {
   const embedContainerRef = useRef<HTMLDivElement>(null);
   const reportRef = useRef<any>(null);
 
+  // Estados de navegação de página
+  const [reportPages, setReportPages] = useState<ReportPage[]>([]);
+  const [allowedPageNames, setAllowedPageNames] = useState<string[] | null>(null);
+  const [activePageName, setActivePageName] = useState<string | undefined>(undefined);
+
   // Selecionar Relatório para Embed
   const handleSelectReport = useCallback(async (report: Report) => {
     if (!currentWorkspace) return;
@@ -56,10 +62,44 @@ export default function PowerBIEmbedPage() {
     setLoading(true);
     setStatusMessage("Preparando relatório...");
     setEmbedToken(null); // Clear token to force re-render
+    setAllowedPageNames(null);
+    setReportPages([]);
+    setActivePageName(undefined);
     
     try {
-      const token = await getEmbedToken(currentWorkspace.id, report.id, selectedClientId || undefined);
+      // 1. Obter Token de Embed
+      const tokenPromise = getEmbedToken(currentWorkspace.id, report.id, selectedClientId || undefined);
+      
+      // 2. Obter Permissões de Página do Usuário (se logado)
+      const permissionsPromise = user ? getUserAllowedPages(report.id, user.id) : Promise.resolve(null);
+
+      // 3. Obter todas as páginas do relatório (para montar menu de navegação se necessário)
+      const pagesPromise = getReportPages(currentWorkspace.id, report.id, selectedClientId || undefined);
+
+      const [token, permissions, pages] = await Promise.all([tokenPromise, permissionsPromise, pagesPromise]);
+      
       setEmbedToken(token);
+      setAllowedPageNames(permissions);
+      setReportPages(pages);
+
+      // Determinar página inicial
+      // Se tiver permissões restritas, pega a primeira permitida.
+      // Se não, pega a primeira do relatório (ou deixa undefined para o PowerBI decidir).
+      if (permissions && permissions.length > 0) {
+        // Verifica se a primeira permissão ainda existe no relatório
+        const validPage = pages.find(p => p.name === permissions[0]);
+        if (validPage) {
+          setActivePageName(validPage.name);
+        } else {
+           // Fallback para qualquer página válida que esteja na lista de permissões
+           const firstValid = pages.find(p => permissions.includes(p.name));
+           if (firstValid) setActivePageName(firstValid.name);
+        }
+      } else if (pages.length > 0) {
+        // Se não tem restrição, começa na primeira página (opcional, mas bom para consistência)
+        setActivePageName(pages[0].name);
+      }
+
       setCurrentReport(report);
       setView("embed");
     } catch (e: unknown) {
@@ -70,7 +110,7 @@ export default function PowerBIEmbedPage() {
       setLoading(false);
       setStatusMessage("");
     }
-  }, [currentWorkspace, getEmbedToken, selectedClientId]);
+  }, [currentWorkspace, getEmbedToken, selectedClientId, user]);
 
   // Handle Refresh
   const handleRefresh = useCallback(async () => {
@@ -327,6 +367,10 @@ export default function PowerBIEmbedPage() {
     setIsFullscreen(!isFullscreen);
   };
 
+  const visiblePages = reportPages.filter(page => 
+    !allowedPageNames || allowedPageNames.includes(page.name)
+  );
+
   return (
     <PageLayout title="Power BI - Sistema Próprio">
       <div className="container mx-auto px-4 py-8 max-w-7xl">
@@ -493,14 +537,42 @@ export default function PowerBIEmbedPage() {
                onMouseLeave={() => isFullscreen && !isSelectOpen && setShowFullscreenHeader(false)}
                >
                 <CardHeader className="pb-3 border-b flex flex-row items-center justify-between space-y-0">
-                  <div className="flex items-center gap-4">
-                    <div>
-                      <CardTitle className="text-lg">{currentReport.name}</CardTitle>
-                      <CardDescription>Dashboard Power BI</CardDescription>
+                  <div className="flex flex-col gap-2 max-w-[70%]">
+                    <div className="flex items-center gap-4">
+                      <div>
+                        <CardTitle className="text-lg">{currentReport.name}</CardTitle>
+                        <CardDescription>Dashboard Power BI</CardDescription>
+                      </div>
                     </div>
+                    
+                    {visiblePages.length > 1 && (
+                      <div className="flex items-center gap-2 overflow-x-auto pb-1 mt-1 no-scrollbar w-full">
+                        {visiblePages.map(page => (
+                          <Button
+                            key={page.name}
+                            variant={activePageName === page.name ? "default" : "outline"}
+                            size="sm"
+                            className="whitespace-nowrap h-7 text-xs px-3 rounded-full"
+                            onClick={async () => {
+                              setActivePageName(page.name);
+                              if (reportRef.current) {
+                                try {
+                                  // @ts-ignore
+                                  await reportRef.current.setPage(page.name);
+                                } catch (e) {
+                                  console.error("Erro ao mudar página:", e);
+                                }
+                              }
+                            }}
+                          >
+                            {page.displayName}
+                          </Button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3 ml-4">
                     {/* Refresh Button */}
                     <Button 
                       variant="outline" 
@@ -559,6 +631,7 @@ export default function PowerBIEmbedPage() {
                     embedUrl: currentReport.embedUrl,
                     accessToken: embedToken,
                     tokenType: models.TokenType.Embed,
+                    pageName: activePageName,
                     settings: {
                       panes: {
                         filters: {
