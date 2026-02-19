@@ -24,6 +24,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+import { Input } from "@/components/ui/input"; // New import
+
 export default function DashboardManagement() {
   const [reports, setReports] = useState<Report[]>([]);
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
@@ -129,6 +131,8 @@ export default function DashboardManagement() {
             is_visible: false,
             assigned_users: [],
             organization_id: defaultOrgId,
+            enable_rls: false,
+            rls_role: "User",
           };
           // Se existir mas não tiver organization_id, preenche com o default (migração suave na UI)
           if (clientSettings[report.id] && !clientSettings[report.id].organization_id) {
@@ -383,6 +387,39 @@ export default function DashboardManagement() {
                         disabled={isSaving}
                       />
                     </div>
+
+                    <div className="flex items-center justify-between border-t pt-4 mt-4">
+                      <div className="space-y-0.5">
+                        <Label htmlFor={`rls-${report.id}`}>Habilitar RLS</Label>
+                        <p className="text-xs text-muted-foreground">Row Level Security</p>
+                      </div>
+                      <Switch
+                        id={`rls-${report.id}`}
+                        checked={settings?.enable_rls ?? false}
+                        onCheckedChange={(checked) =>
+                          handleSettingChange(report.id, "enable_rls", checked)
+                        }
+                        disabled={isSaving}
+                      />
+                    </div>
+
+                    {settings?.enable_rls && (
+                      <div className="animate-in fade-in slide-in-from-top-1">
+                        <Label htmlFor={`rls-role-${report.id}`} className="mb-2 block">
+                          Role RLS
+                        </Label>
+                        <Input
+                          id={`rls-role-${report.id}`}
+                          value={settings?.rls_role || "User"}
+                          onChange={(e) => handleSettingChange(report.id, "rls_role", e.target.value)}
+                          placeholder="Ex: User"
+                          disabled={isSaving}
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Nome da role definida no Power BI Desktop.
+                        </p>
+                      </div>
+                    )}
                     
                     <div>
                       <Label className="mb-2 block">Controle de Abas</Label>

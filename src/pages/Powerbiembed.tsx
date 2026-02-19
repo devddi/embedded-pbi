@@ -8,7 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Loader2, AlertCircle, LayoutDashboard, FileBarChart, ArrowLeft, Maximize, Minimize, RefreshCw } from "lucide-react";
 import { PowerBIEmbed } from "powerbi-client-react";
 import { models } from "powerbi-client";
-import { getAllDashboardSettings } from "@/services/dashboardSettingsService";
+import { getAllDashboardSettings, DashboardSettings } from "@/services/dashboardSettingsService";
 import { getWorkspaces, getReportsInWorkspace, getEmbedToken, getReportPages, Workspace, Report, ReportPage } from "@/services/powerBiApiService";
 import { powerbiClientsService, PowerBIClient } from "@/services/powerbiClientsService"; // Import service
 import { getUserAllowedPages } from "@/services/dashboardPagePermissionsService";
@@ -32,6 +32,7 @@ export default function PowerBIEmbedPage() {
   // Estados de dados
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [reports, setReports] = useState<Report[]>([]);
+  const [allSettings, setAllSettings] = useState<DashboardSettings[]>([]); // New state to store settings
   const [currentWorkspace, setCurrentWorkspace] = useState<Workspace | null>(null);
   const [currentReport, setCurrentReport] = useState<Report | null>(null);
   const [embedToken, setEmbedToken] = useState<string | null>(null);
@@ -70,7 +71,21 @@ export default function PowerBIEmbedPage() {
     
     try {
       // 1. Obter Token de Embed
-      const tokenPromise = getEmbedToken(currentWorkspace.id, report.id, selectedClientId || undefined);
+      // Verificar se RLS está habilitado para este report
+      const reportSettings = allSettings.find(s => s.dashboard_id === report.id);
+      const identity = (reportSettings?.enable_rls && user && user.email) ? {
+        username: user.email,
+        roles: [reportSettings.rls_role || "User"],
+        datasets: report.datasetId ? [report.datasetId] : []
+      } : undefined;
+
+      // Se RLS estiver ativo mas não tivermos datasetId, pode falhar. 
+      // O datasetId deve vir no objeto Report. Se não vier, vamos tentar sem, mas logar aviso.
+      if (identity && identity.datasets.length === 0) {
+         console.warn("RLS habilitado mas datasetId não encontrado no relatório. Token pode falhar ou não aplicar RLS.");
+      }
+
+      const tokenPromise = getEmbedToken(currentWorkspace.id, report.id, selectedClientId || undefined, identity);
       
       // 2. Obter Permissões de Página do Usuário (se logado)
       const permissionsPromise = user ? getUserAllowedPages(report.id, user.id) : Promise.resolve(null);
@@ -298,6 +313,7 @@ export default function PowerBIEmbedPage() {
       
       // Buscar configurações de visibilidade do Supabase
       const settings = await getAllDashboardSettings();
+      setAllSettings(settings); // Store settings for later use
       
       // Filtrar relatórios:
       // 1. Deve estar marcado como is_visible = true

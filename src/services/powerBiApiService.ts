@@ -12,6 +12,7 @@ export interface Report {
   webUrl: string;
   workspaceId: string; // Adicionado para facilitar o uso
   workspaceName?: string; // Adicionado para facilitar a exibição
+  datasetId?: string;     // Importante para RLS
 }
 
 export interface ReportPage {
@@ -84,16 +85,24 @@ export const getAccessToken = async (clientId?: string): Promise<string> => {
   }
 };
 
+export interface RLSIdentity {
+  username: string;
+  roles: string[];
+  datasets: string[];
+}
+
 /**
  * Obtém o Embed Token para um relatório específico.
  * @param workspaceId O ID do workspace.
  * @param reportId O ID do relatório.
+ * @param identity Opcional: Identidade do usuário para RLS.
  * @returns Promise<string> O embed token.
  */
 export const getEmbedToken = async (
   workspaceId: string,
   reportId: string,
   clientId?: string,
+  identity?: RLSIdentity
 ): Promise<string> => {
   const accessToken = await getAccessToken(clientId);
   
@@ -101,6 +110,11 @@ export const getEmbedToken = async (
     let response;
     const path = `v1.0/myorg/groups/${workspaceId}/reports/${reportId}/GenerateToken`;
     
+    const body: any = { accessLevel: 'View' };
+    if (identity) {
+      body.identities = [identity];
+    }
+
     if (import.meta.env.DEV) {
       response = await fetch(`/powerbi-api/${path}`, {
         method: 'POST',
@@ -108,7 +122,7 @@ export const getEmbedToken = async (
           'Authorization': `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ accessLevel: 'View' })
+        body: JSON.stringify(body)
       });
     } else {
       const url =
@@ -118,7 +132,7 @@ export const getEmbedToken = async (
       response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accessLevel: 'View' })
+        body: JSON.stringify(body)
       });
     }
 

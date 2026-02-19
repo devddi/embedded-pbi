@@ -8,6 +8,8 @@ export interface DashboardSettings {
   organization_id?: string; // ID da organização dona do dashboard
   created_at?: string;
   updated_at?: string;
+  enable_rls?: boolean; // Habilita Row Level Security
+  rls_role?: string;    // Nome da role RLS (default: User)
 }
 
 const TABLE_NAME = "powerbi_dashboard_settings";
@@ -66,6 +68,8 @@ export const upsertDashboardSettings = async (
         is_visible: settings.is_visible,
         assigned_users: settings.assigned_users,
         organization_id: settings.organization_id, // Adicionado campo para RLS
+        enable_rls: settings.enable_rls ?? false,
+        rls_role: settings.rls_role ?? "User",
       },
       { onConflict: "dashboard_id" } // Upsert based on dashboard_id
     )
